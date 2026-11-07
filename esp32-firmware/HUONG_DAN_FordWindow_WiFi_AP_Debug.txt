@@ -1,0 +1,56 @@
+FORD WINDOW — ESP32-S3 Wi-Fi AP DEBUG (BAN CHAN DOAN)
+=======================================================
+
+1. MUC DICH
+- ESP32-S3 tu phat Wi-Fi rieng, KHONG can router hoac Internet.
+- Dien thoai/laptop ket noi AP de xem trang thai va log dang chay.
+- Chuyen CAL chi nhan tai boot, khong trung voi DOWN thu cong.
+- DAY LA BAN CHAN DOAN: Motor LOCKED. Chua hoc/lUU baseline, chua chong ket.
+
+2. CAN CHUAN BI
+- Arduino IDE, board ESP32-S3 da cai Arduino-ESP32 (Core 3.x phu hop).
+- Khong can cai thu vien ben thu ba: WiFi.h, WebServer.h tu board package.
+- Nap firmware KHI DA NGAT NGUON NGOAI CAP CHO ESP32 VA NGUON MOTOR.
+- Khong cap 12V truc tiep vao 5V/3V3 ESP32. Khong noi USB lap va nguon ngoai
+  dong thoi neu chua kiem tra so do cach ly/lua chon nguon cua board.
+
+3. NAP CODE
+- Mo sketch_oct19b_wifi_ap_dashboard.ino bang Arduino IDE.
+- Chon dung board ESP32-S3, port USB. Verify/Upload.
+- Neu can, sua AP_SSID va AP_PASSWORD (>=8 ky tu) o dau file truoc khi nap.
+- Rut USB, sau do cap nguon ngoai an toan cho ESP32.
+
+4. XEM LOG TREN DIEN THOAI HOAC LAPTOP
+- Ket noi Wi-Fi: FORD-WINDOW-DEBUG
+- Mat khau MAC DINH THU NGHIEM: FordWindow!26
+- Mo trinh duyet: http://192.168.4.1 (phai dung http, khong phai https).
+- Neu dien thoai bao 'Wi-Fi khong co Internet', chon van giu ket noi;
+  tat du lieu di dong neu no tu dong chuyen mang.
+- Dashboard tu cap nhat moi ~1 giay: mode, motor, cong tac, switch ADC GPIO1,
+  ACS712 GPIO10, hanh trinh tren/duoi, boot/CAL logs.
+- /api/status va /api/logs la JSON chi doc. Khong co endpoint dieu khien motor.
+
+5. KICH HOAT CAL (CHi KHI KHOI DONG ESP32)
+- Truoc khi cap nguon/reset, giu AUTO DOWN (KHONG PHAI DOWN thu cong).
+- Cap nguon/reset, giu AUTO DOWN du 2 giay.
+- Tha cong tac ve RELEASED trong vong 3 giay.
+- Chuyen AUTO UP trong vong 3 giay va giu du 2 giay.
+- Sau khi ESP32 phat AP, vao trang web xem log [CAL] ENTER CALIBRATION MODE.
+- CAL o ban nay CHI la mode chuan doan, MOTOR van LOCKED, chua tinh baseline.
+- Neu giu DOWN binh thuong bat ky khi nao: khong kich hoat CAL.
+- Reset ESP32 de thoat CAL.
+
+6. THONG SO BOARD MAC DINH
+  GPIO4/5/6/7: BTS7960 (luon LOW trong ban test)
+  GPIO8/9:    limit switches (logic HIGH = cham, theo code goc)
+  GPIO1:      ADC cong tac bon che do
+  GPIO10:     ACS712 ADC sau mach chia ap
+
+7. LUU Y
+- Ban goc su dung ACS_STALL_THRESHOLD_MV = 1705; khong phu hop voi
+  gia tri 1870-1890mV motor nang binh thuong theo VOM moi cua ban.
+- Ban chuan doan khong dung nguong cu va khong cho phep motor chay.
+- So do bang VOM tai OUT ACS712 co the khac analogReadMilliVolts(GPIO10)
+  neu noi qua mach chia ap; can doi chieu cung diem do.
+- Nhat ky chi luu trong RAM va mat khi mat nguon/reset.
+- Sau khi kiem tra AP/log, moi phat trien them CAL baseline va kiem thu luc kep an toan.
