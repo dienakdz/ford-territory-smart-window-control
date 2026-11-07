@@ -1,8 +1,8 @@
 #pragma once
 
 #include <Arduino.h>
-#include "types.h"
-#include "config.h"
+#include "../config/types.h"
+#include "../config/config.h"
 
 extern bool calMode;
 extern CalPhase calPhase;
@@ -18,18 +18,18 @@ extern String lastCalResult;
 extern CalGestureState calGestureState;
 extern unsigned long calGestureTimer;
 
-// Theo doi chuoi thao tac de kich hoat CAL khi o NORMAL
+// Theo doi chuoi thao tac nut de kich hoat CAL khi dang o NORMAL
 void trackCalGesture(unsigned long now);
 
 // Kiem tra thao tac CAL ngay khi vua cap nguon ESP32
 void checkBootCal();
 
-// State machine dieu khien quy trinh Calibration
+// May trang thai dieu khien toan bo quy trinh Calibration
 void handleCal(unsigned long now);
 
-// Tinh toan baseline va luu vao NVS
+// Tinh toan baseline trimmed mean va luu vao NVS Flash
 void computeAndSaveCal();
 
-// Thoat hoac huy quy trinh Calibration
+// Thoat khoi CAL va quay ve NORMAL
 void exitCal(const String &result);
 void abortCal(const String &why);

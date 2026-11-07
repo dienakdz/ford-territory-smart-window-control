@@ -1,11 +1,11 @@
 #include "logger.h"
 
-// Khai bao cac bien toan cuc ring buffer
+// Ring buffer toan cuc
 char logRing[LOG_CAPACITY][LOG_LINE_LEN] = {};
 size_t logNext = 0;
 size_t logCount = 0;
 
-// Tham chieu bien tu cac module khac
+// Tham chieu cac bien trang thai he thong
 extern MotorState motorState;
 extern bool calMode;
 extern CalPhase calPhase;

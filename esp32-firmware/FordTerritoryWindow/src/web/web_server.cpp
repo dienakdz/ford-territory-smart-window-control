@@ -1,10 +1,10 @@
 #include "web_server.h"
-#include "logger.h"
-#include "motor_control.h"
-#include "switch_control.h"
-#include "anti_pinch.h"
-#include "nvs_storage.h"
-#include "calibration.h"
+#include "../logger/logger.h"
+#include "../motor/motor_control.h"
+#include "../switch/switch_control.h"
+#include "../anti_pinch/anti_pinch.h"
+#include "../storage/nvs_storage.h"
+#include "../calibration/calibration.h"
 
 WebServer webServer(80);
 bool apReady = false;

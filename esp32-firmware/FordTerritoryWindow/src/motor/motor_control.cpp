@@ -1,5 +1,5 @@
 #include "motor_control.h"
-#include "logger.h"
+#include "../logger/logger.h"
 
 MotorState motorState = STOPPED;
 RunMode currentRunMode = MODE_MANUAL;
@@ -47,11 +47,11 @@ void motorStop() {
 }
 
 bool motorRun(bool up, RunMode requestedMode) {
-  // Dung truoc khi thay doi chieu chay
+  // Dung truoc khi thay doi chieu chay de dam bao an toan
   motorStop();
   delay(MOTOR_DIRECTION_DEADTIME_MS);
 
-  // Bao ve neu ca hai hanh trinh cung kich hoat
+  // Bao ve neu ca hai hanh trinh cung kich hoat (loi phan cung)
   if (limitsConflict()) {
     logEvent("[SAFE] LOI: Ca hai cong tac hanh trinh cung kich hoat! Motor locked.");
     currentRunMode = MODE_MANUAL;

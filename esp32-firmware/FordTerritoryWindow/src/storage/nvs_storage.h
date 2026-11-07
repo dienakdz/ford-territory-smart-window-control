@@ -2,8 +2,8 @@
 
 #include <Arduino.h>
 #include <Preferences.h>
-#include "types.h"
-#include "config.h"
+#include "../config/types.h"
+#include "../config/config.h"
 
 extern CalibrationRecord savedCal;
 extern bool baselineValid;

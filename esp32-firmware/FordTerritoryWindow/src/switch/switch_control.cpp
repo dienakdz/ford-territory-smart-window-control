@@ -1,7 +1,7 @@
 #include "switch_control.h"
-#include "motor_control.h"
-#include "nvs_storage.h"
-#include "logger.h"
+#include "../motor/motor_control.h"
+#include "../storage/nvs_storage.h"
+#include "../logger/logger.h"
 
 int switchVoltageMv = 0;
 SwitchMode stableSwitchMode = SW_UNKNOWN;

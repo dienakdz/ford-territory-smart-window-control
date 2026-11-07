@@ -1,7 +1,7 @@
 #include "anti_pinch.h"
-#include "motor_control.h"
-#include "nvs_storage.h"
-#include "logger.h"
+#include "../motor/motor_control.h"
+#include "../storage/nvs_storage.h"
+#include "../logger/logger.h"
 
 int latestAcsMv = 0;
 bool acsHighDetected = false;

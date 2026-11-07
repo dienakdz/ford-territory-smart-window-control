@@ -1,9 +1,9 @@
 #include "calibration.h"
-#include "motor_control.h"
-#include "switch_control.h"
-#include "anti_pinch.h"
-#include "nvs_storage.h"
-#include "logger.h"
+#include "../motor/motor_control.h"
+#include "../switch/switch_control.h"
+#include "../anti_pinch/anti_pinch.h"
+#include "../storage/nvs_storage.h"
+#include "../logger/logger.h"
 
 bool calMode = false;
 CalPhase calPhase = CAL_INACTIVE;
@@ -311,7 +311,6 @@ void handleCal(unsigned long now) {
   }
 }
 
-// Chuoi nhan dien CAL luc boot: AUTO DOWN 2s -> RELEASE -> AUTO UP 2s -> RELEASE
 bool bootHoldMode(SwitchMode expected, unsigned long holdMs, const char *label) {
   unsigned long since = millis();
   unsigned int reportedSec = 0;
