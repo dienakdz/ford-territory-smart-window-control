@@ -99,11 +99,16 @@ const IPAddress STA_DNS(172, 20, 10, 1);
 // Dia chi Flask Voice Server chay tren Laptop (cung mang iPhone Hotspot)
 const char * const FLASK_SERVER_BASE = "http://172.20.10.2:5000";
 
+// --- DIEU KHIEN TOC DO MOTOR (PWM BTS7960) ---
+// 255: 100% dien ap (chay cuc nhanh ~2.64s, qua nhanh doi voi kinh oto)
+// 180: ~70% dien ap (kinh chay em ai ~5.0 - 5.5s, rat truc quan de quan sat va ra lenh giong noi)
+const uint8_t MOTOR_SPEED_PWM = 180;
+
 // --- THAM SO THU AM GIONG NOI INMP441 ---
 const uint32_t VOICE_SAMPLE_RATE = 16000;
-const size_t VOICE_INITIAL_SECONDS = 2;   // Lenh khoi dau (2s): Nguoi dung thoai mai noi cau lenh dai tu nhien
-const size_t VOICE_INTERRUPT_SECONDS = 1; // Khi kinh chay hoac trong 10s (1s): Phan hoi sieu toc de bat lenh DUNG
-const size_t VOICE_MAX_SAMPLE_COUNT = VOICE_SAMPLE_RATE * VOICE_INITIAL_SECONDS; // 32,000 samples (max 2s)
-const size_t VOICE_MAX_PCM_BYTES = VOICE_MAX_SAMPLE_COUNT * sizeof(int16_t);     // 64,000 bytes
+const size_t VOICE_RECORD_SECONDS = 2; // Dong bo 2 giay toan he thong
+const size_t VOICE_SAMPLE_COUNT = VOICE_SAMPLE_RATE * VOICE_RECORD_SECONDS; // 32,000 samples (2 giay)
+const size_t VOICE_PCM_BYTES = VOICE_SAMPLE_COUNT * sizeof(int16_t);       // 64,000 bytes
 const int VOICE_MIC_GAIN = 4; // Do khuếch đại phan mem (chong clip am)
 const unsigned long VOICE_ACTIVE_WINDOW_MS = 10000; // Cua so 10 giay tiep tuc lang nghe menh lenh tiep theo
+const int VOICE_MIN_SPEECH_PEAK = 220; // Nguong VAD: Chi gui lenh khi thuc su co giong noi (tranh spam tieng on phong)

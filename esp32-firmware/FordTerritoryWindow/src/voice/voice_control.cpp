@@ -13,7 +13,6 @@ bool isVoiceRecording = false;
 volatile VoiceCommandReq voicePendingReq = VOICE_REQ_NONE;
 volatile unsigned long voiceActiveUntilMs = 0;
 static volatile bool voiceTriggerRequested = false;
-static volatile bool isInitialTrigger = false; // true: lenh khoi dau (2s), false: ngat khi kinh chay (1s)
 
 static TaskHandle_t voiceTaskHandle = NULL;
 static I2SClass mic;
@@ -31,14 +30,14 @@ void voiceInit() {
     logEvent("[VOICE] LOI: Khoi tao I2S micro INMP441 that bai!");
     return;
   }
-  logEvent("[VOICE] Micro INMP441 san sang (GPIO14/15/16 | 16kHz).");
+  logEvent("[VOICE] Micro INMP441 san sang (GPIO14/15/16 | 16kHz | 2s).");
 
-  // Cap phat bo dem toi da 64KB (2 giay) de tranh phan manh bo nho heap
+  // Cap phat bo dem co dinh 64KB (2 giay)
   if (psramFound()) {
-    voicePcmBuffer = static_cast<int16_t *>(ps_malloc(VOICE_MAX_PCM_BYTES));
+    voicePcmBuffer = static_cast<int16_t *>(ps_malloc(VOICE_PCM_BYTES));
   }
   if (voicePcmBuffer == nullptr) {
-    voicePcmBuffer = static_cast<int16_t *>(malloc(VOICE_MAX_PCM_BYTES));
+    voicePcmBuffer = static_cast<int16_t *>(malloc(VOICE_PCM_BYTES));
   }
   if (voicePcmBuffer == nullptr) {
     logEvent("[VOICE] LOI: Khong the cap phat bo dem 64KB cho am thanh!");
@@ -58,10 +57,9 @@ void voiceInit() {
 }
 
 void triggerVoiceListen() {
-  isInitialTrigger = true;       // Lenh dau tien thu 2 giay thoai mai
   voiceTriggerRequested = true;
   voiceActiveUntilMs = millis() + VOICE_ACTIVE_WINDOW_MS;
-  logEvent("[VOICE] Bat dau thu am lenh dau (2s)...\n[VOICE] Hay noi: \"nang kinh\" / \"ha kinh\" / \"dung lai\"...");
+  logEvent("[VOICE] Bat dau thu am 2 giay...\n[VOICE] Hay noi: \"nang kinh\" / \"ha kinh\" / \"dung lai\"...");
 }
 
 bool recordAndRecognize() {
@@ -110,15 +108,17 @@ static void voiceTaskLoop(void *pvParameters) {
   while (true) {
     unsigned long now = millis();
     bool shouldListen = false;
+    bool explicitButton = false;
 
     // Kiem tra neu co yeu cau kich hoat tu Web / Serial
     if (voiceTriggerRequested) {
       voiceTriggerRequested = false;
+      explicitButton = true;
       voiceActiveUntilMs = now + VOICE_ACTIVE_WINDOW_MS;
       shouldListen = true;
     }
 
-    // Neu kinh dang chay (UP hoac DOWN): Luon tu dong lang nghe tung block 1s de bat lenh STOP / DAO CHIEU!
+    // Neu kinh dang chay (UP hoac DOWN): Luon tu dong lang nghe de bat lenh STOP / DAO CHIEU!
     if (motorState != STOPPED) {
       shouldListen = true;
     }
@@ -135,16 +135,7 @@ static void voiceTaskLoop(void *pvParameters) {
       continue;
     }
 
-    // --- XAC DINH THOI GIAN THU AM ---
-    // Lenh khoi dau: 2 giay (32000 mau) de nguoi dung thoai mai noi cau dai
-    // Trong cua so 10s hoac khi kinh chay: 1 giay (16000 mau) de bat ngat sieu toc
-    bool currentIsInitial = isInitialTrigger;
-    isInitialTrigger = false; // Reset co sau khi bat dau ghi
-
-    size_t targetSamples = currentIsInitial
-        ? (VOICE_SAMPLE_RATE * VOICE_INITIAL_SECONDS)
-        : (VOICE_SAMPLE_RATE * VOICE_INTERRUPT_SECONDS);
-
+    // --- TIEN HANH THU AM 2 GIAY DONG BO ---
     isVoiceRecording = true;
 
     // Xoa sach mau ton dong trong bo dem I2S
@@ -155,8 +146,8 @@ static void voiceTaskLoop(void *pvParameters) {
     int peak = 0;
     uint64_t sumSquares = 0;
 
-    while (recorded < targetSamples) {
-      size_t want = min(BLOCK_SAMPLES, targetSamples - recorded);
+    while (recorded < VOICE_SAMPLE_COUNT) {
+      size_t want = min(BLOCK_SAMPLES, VOICE_SAMPLE_COUNT - recorded);
       size_t gotBytes = mic.readBytes(
           reinterpret_cast<char *>(rawSamples), want * sizeof(int32_t));
       size_t gotSamples = gotBytes / sizeof(int32_t);
@@ -171,7 +162,7 @@ static void voiceTaskLoop(void *pvParameters) {
       }
       emptyReads = 0;
 
-      for (size_t i = 0; i < gotSamples && recorded < targetSamples; i++) {
+      for (size_t i = 0; i < gotSamples && recorded < VOICE_SAMPLE_COUNT; i++) {
         int32_t v = (rawSamples[i] >> 16) * VOICE_MIC_GAIN;
         if (v > 32767) v = 32767;
         if (v < -32768) v = -32768;
@@ -182,10 +173,12 @@ static void voiceTaskLoop(void *pvParameters) {
       }
     }
 
-    // Kiem tra neu doan am thanh qua nho (im lang)
-    if (peak < 35 && motorState == STOPPED) {
+    // [BỘ LỌC VAD - VOICE ACTIVITY DETECTION]:
+    // Nếu người dùng không ấn nút và âm thanh chỉ là tiếng ồn phòng (peak < 220),
+    // bỏ qua và không gửi sang Google để tránh nghẽn mạng và spam "Không rõ từ ngữ"!
+    if (!explicitButton && peak < VOICE_MIN_SPEECH_PEAK) {
       isVoiceRecording = false;
-      vTaskDelay(pdMS_TO_TICKS(30));
+      vTaskDelay(pdMS_TO_TICKS(40));
       continue;
     }
 
@@ -195,7 +188,7 @@ static void voiceTaskLoop(void *pvParameters) {
     String url = String(FLASK_SERVER_BASE) + "/recognize";
 
     if (http.begin(client, url)) {
-      http.setConnectTimeout(2000);
+      http.setConnectTimeout(2500);
       http.setTimeout(8000);
       http.addHeader("Content-Type", "application/octet-stream");
 
@@ -239,8 +232,8 @@ static void voiceTaskLoop(void *pvParameters) {
 
     isVoiceRecording = false;
 
-    // Nghi nhe 10ms giua cac block de nhuong tai mang
-    vTaskDelay(pdMS_TO_TICKS(10));
+    // Nghi nhe 20ms giua cac block
+    vTaskDelay(pdMS_TO_TICKS(20));
   }
 }
 

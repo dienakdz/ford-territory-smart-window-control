@@ -34,8 +34,8 @@ bool limitsConflict() {
 }
 
 void motorStop() {
-  digitalWrite(RPWM_PIN, LOW);
-  digitalWrite(LPWM_PIN, LOW);
+  analogWrite(RPWM_PIN, 0);
+  analogWrite(LPWM_PIN, 0);
   digitalWrite(REN_PIN, LOW);
   digitalWrite(LEN_PIN, LOW);
 
@@ -72,13 +72,13 @@ bool motorRun(bool up, RunMode requestedMode) {
     return false;
   }
 
-  // Chon chieu quay motor (BTS7960)
+  // Chon chieu quay motor (BTS7960 dieu xung PWM giup kinh chay em ai ~4-5s)
   if (up) {
-    digitalWrite(LPWM_PIN, LOW);
-    digitalWrite(RPWM_PIN, HIGH);
+    analogWrite(LPWM_PIN, 0);
+    analogWrite(RPWM_PIN, MOTOR_SPEED_PWM);
   } else {
-    digitalWrite(RPWM_PIN, LOW);
-    digitalWrite(LPWM_PIN, HIGH);
+    analogWrite(RPWM_PIN, 0);
+    analogWrite(LPWM_PIN, MOTOR_SPEED_PWM);
   }
 
   // Enable BTS7960
