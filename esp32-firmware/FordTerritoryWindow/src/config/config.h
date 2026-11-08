@@ -52,7 +52,7 @@ const unsigned long DEBUG_INTERVAL_MS = 250;
 
 // --- NGUONG THU NGHIEM CHONG KET ---
 // Nguong phat hien ket = Baseline da do + Margin
-const int ANTI_PINCH_MARGIN_MV = 40;
+const int ANTI_PINCH_MARGIN_MV = 20;
 const bool ENABLE_EXPERIMENTAL_REVERSE = true; // true: tu dong dao chieu ha kinh 1s khi phat hien ket AUTO UP
 
 // --- THAM SO HIEU CHUAN (CALIBRATION) ---
