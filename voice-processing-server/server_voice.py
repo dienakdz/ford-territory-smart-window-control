@@ -19,33 +19,33 @@ from flask import Flask, Response, request
 HOST = "0.0.0.0"    # Lang nghe tren moi card mang cua Laptop
 PORT = 5000
 SAMPLE_RATE = 16_000
-DURATION_SECONDS = 2
+DURATION_SECONDS = 1  # Rut ngan con 1s de phan hoi sieu toc, ngat dung kinh tuc thi
 SAMPLE_WIDTH = 2  # PCM signed 16-bit
-EXPECTED_BYTES = SAMPLE_RATE * DURATION_SECONDS * SAMPLE_WIDTH  # 64,000 bytes (2s de phan hoi nhanh)
+EXPECTED_BYTES = SAMPLE_RATE * DURATION_SECONDS * SAMPLE_WIDTH  # 32,000 bytes (1 giay)
 SAVE_LAST_WAV = True
 LAST_WAV_PATH = Path(__file__).resolve().parent / "last_voice.wav"
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = EXPECTED_BYTES
+app.config["MAX_CONTENT_LENGTH"] = 128 * 1024  # Cho phep dem du toi 128KB, khong bao gio loi 413
 
 recognizer = sr.Recognizer()
-recognizer.operation_timeout = 15  # Phong ngua timeout mang Google
+recognizer.operation_timeout = 10  # Timeout nhanh 10s
 
 # 3 CHE DO GIONG NOI: AUTO UP, AUTO DOWN, STOP (Chuan xac, an toan tuyet doi)
 PHRASES = {
     "AUTO_UP": {
         "nâng kính", "nâng kính ghế phụ", 
         "lên kính", "kéo kính lên", "mở kính lên",
-        "nâng kính lên", "auto lên", "auto up"
+        "nâng kính lên", "auto lên", "auto up", "kéo lên"
     },
     "AUTO_DOWN": {
         "hạ kính", "hạ kính ghế phụ", 
         "xuống kính", "kéo kính xuống", "mở kính xuống",
-        "hạ kính xuống", "auto xuống", "auto down"
+        "hạ kính xuống", "auto xuống", "auto down", "kéo xuống"
     },
     "STOP": {
         "dừng", "dừng lại", "dừng kính", "ngừng", "ngừng kính", 
-        "dừng kính lại", "stop"
+        "dừng kính lại", "stop", "thôi", "đứng lại"
     },
 }
 
@@ -73,6 +73,29 @@ def normalize(text: str) -> str:
 
 def to_command(text: str) -> str:
     phrase = normalize(text)
+    if not phrase:
+        return "UNKNOWN"
+
+    # [ƯU TIÊN 1 - KHẨN CẤP]: LỆNH DỪNG (STOP)
+    # Nếu người dùng nói bất kỳ từ nào chứa "dừng", "dừng lại", "ngừng", "stop", "thôi"...
+    stop_keywords = ["dừng", "dừng lại", "ngừng", "stop", "thôi", "đứng lại"]
+    for kw in stop_keywords:
+        if kw in phrase:
+            return "STOP"
+
+    # [ƯU TIÊN 2]: LỆNH HẠ KÍNH (AUTO DOWN)
+    down_keywords = ["hạ kính", "xuống kính", "kéo kính xuống", "hạ xuống", "mở kính", "auto down", "kéo xuống"]
+    for kw in down_keywords:
+        if kw in phrase:
+            return "AUTO_DOWN"
+
+    # [ƯU TIÊN 3]: LỆNH NÂNG KÍNH (AUTO UP)
+    up_keywords = ["nâng kính", "lên kính", "kéo kính lên", "nâng lên", "đóng kính", "auto up", "kéo lên"]
+    for kw in up_keywords:
+        if kw in phrase:
+            return "AUTO_UP"
+
+    # Đối chiếu toàn bộ tập hợp mẫu
     for command, accepted_phrases in PHRASES.items():
         if phrase in accepted_phrases:
             return command
@@ -99,9 +122,9 @@ def recognize() -> Response:
         return reply("UNKNOWN", 415)
 
     pcm = request.get_data(cache=False)
-    print(f"\n[AUDIO] Nhan {len(pcm)} bytes tu ESP32 (ky vong {EXPECTED_BYTES})", flush=True)
-    if len(pcm) != EXPECTED_BYTES:
-        print("[ERROR] Kich thuoc audio khong dung", flush=True)
+    print(f"\n[AUDIO] Nhan {len(pcm)} bytes tu ESP32 (ky vong ~{EXPECTED_BYTES})", flush=True)
+    if len(pcm) < 8000:
+        print("[ERROR] Du lieu am thanh qua ngan (< 0.25s)", flush=True)
         return reply("UNKNOWN", 400)
 
     samples = np.frombuffer(pcm, dtype="<i2")

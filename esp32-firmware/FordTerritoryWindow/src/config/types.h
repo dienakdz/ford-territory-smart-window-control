@@ -58,6 +58,16 @@ enum CalGestureState {
 };
 
 /**
+ * @brief Lenh giong noi truyen giua Core 0 (Listen Task) va Core 1 (Main Loop)
+ */
+enum VoiceCommandReq {
+  VOICE_REQ_NONE = 0,
+  VOICE_REQ_AUTO_UP,
+  VOICE_REQ_AUTO_DOWN,
+  VOICE_REQ_STOP
+};
+
+/**
  * @brief Cau truc ban ghi luu tru vao NVS Flash ESP32
  */
 struct CalibrationRecord {

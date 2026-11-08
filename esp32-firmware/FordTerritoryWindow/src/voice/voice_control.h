@@ -6,12 +6,20 @@
 
 extern String lastVoiceResult;
 extern bool isVoiceRecording;
+extern volatile VoiceCommandReq voicePendingReq;
+extern volatile unsigned long voiceActiveUntilMs;
 
-// Khoi tao micro so INMP441 qua giao tiep I2S (GPIO14, 15, 16)
+// Khoi tao micro so INMP441 qua giao tiep I2S va khoi dong Dual-Core Task tren Core 0
 void voiceInit();
 
 // Kiem tra ket noi den Flask Voice Server tren Laptop
 bool testVoiceServerPing();
 
-// Thu am 3 giay tu INMP441, gui HTTP POST sang Laptop, nhan va thuc thi lenh an toan
+// Kich hoat lang nghe giong noi (mo cua so 10 giay, Non-blocking)
+void triggerVoiceListen();
+
+// Kiem tra va thuc thi lenh giong noi tren Core 1 (goi trong loop)
+void checkVoicePendingReq();
+
+// Ham tuong thich: Kich hoat lang nghe
 bool recordAndRecognize();

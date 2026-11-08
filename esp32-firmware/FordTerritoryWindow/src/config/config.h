@@ -101,7 +101,9 @@ const char * const FLASK_SERVER_BASE = "http://172.20.10.2:5000";
 
 // --- THAM SO THU AM GIONG NOI INMP441 ---
 const uint32_t VOICE_SAMPLE_RATE = 16000;
-const size_t VOICE_RECORD_SECONDS = 2; // Rut ngan xuong 2s de phan hoi nhanh, realtime
-const size_t VOICE_SAMPLE_COUNT = VOICE_SAMPLE_RATE * VOICE_RECORD_SECONDS; // 32,000 samples
-const size_t VOICE_PCM_BYTES = VOICE_SAMPLE_COUNT * sizeof(int16_t);       // 64,000 bytes
-const int VOICE_MIC_GAIN = 4; // Do khuếch đại phan mem (giam tu 8 xuong 4 de chong clip am)
+const size_t VOICE_INITIAL_SECONDS = 2;   // Lenh khoi dau (2s): Nguoi dung thoai mai noi cau lenh dai tu nhien
+const size_t VOICE_INTERRUPT_SECONDS = 1; // Khi kinh chay hoac trong 10s (1s): Phan hoi sieu toc de bat lenh DUNG
+const size_t VOICE_MAX_SAMPLE_COUNT = VOICE_SAMPLE_RATE * VOICE_INITIAL_SECONDS; // 32,000 samples (max 2s)
+const size_t VOICE_MAX_PCM_BYTES = VOICE_MAX_SAMPLE_COUNT * sizeof(int16_t);     // 64,000 bytes
+const int VOICE_MIC_GAIN = 4; // Do khuếch đại phan mem (chong clip am)
+const unsigned long VOICE_ACTIVE_WINDOW_MS = 10000; // Cua so 10 giay tiep tuc lang nghe menh lenh tiep theo

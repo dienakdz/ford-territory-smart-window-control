@@ -45,8 +45,8 @@ pre{white-space:pre-wrap;min-height:220px;max-height:450px;overflow:auto;backgro
 <p class="notice">BẢN THỬ NGHIỆM. Ngưỡng ACS712 +40mV. Chống kẹt tự động đảo chiều hạ kính 1 giây.</p>
 
 <div class="voice-box">
-  <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (2s)</button>
-  <span id="voiceNotice" class="small" style="color:#7dd3fc">3 lệnh hỗ trợ: "nâng kính" (AUTO UP) | "hạ kính" (AUTO DOWN) | "dừng kính" (STOP)</span>
+  <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (Lệnh đầu 2s / Ngắt 1s)</button>
+  <span id="voiceNotice" class="small" style="color:#7dd3fc">Bấm nút: có 2s nói thoải mái. Khi kính chạy hoặc trong 10s: tự động nghe từng 1s để bạn có thể hô "dừng" tức thì!</span>
 </div>
 
 <div class="grid">
@@ -74,16 +74,16 @@ let inFlight=false;
 
 async function triggerVoice(){
  const btn=e('btnVoice'),st=e('voiceNotice');
- btn.disabled=true;btn.style.opacity='0.5';
- st.textContent='🎙️ Đang thu âm 2s từ micro INMP441... Hãy nói: "nâng kính" / "hạ kính" / "dừng kính"...';
+ btn.disabled=true;btn.style.opacity='0.6';
+ st.textContent='🎙️ Đang thu âm 2s lệnh đầu tiên... Hãy nói: "nâng kính" / "hạ kính" / "dừng lại"!';
  try{
   const r=await fetch('/api/voice/record',{method:'POST'});
   const d=await r.json();
-  st.textContent='Lệnh nhận được: '+d.command;
+  st.textContent='Hệ thống đang mở cửa sổ 10s (nghe 1s/lần)! Bạn có thể hô "dừng" bất cứ lúc nào khi kính chạy.';
  }catch(err){
   st.textContent='Lỗi kết nối: '+err.message;
  }finally{
-  btn.disabled=false;btn.style.opacity='1';
+  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';}, 2000);
  }
 }
 
@@ -190,10 +190,10 @@ void startWiFi() {
   webServer.on("/api/status", HTTP_GET, sendStatus);
   webServer.on("/api/logs", HTTP_GET, sendLogs);
 
-  // Endpoint kich hoat thu am giong noi tu Web Dashboard
+  // Endpoint kich hoat thu am giong noi tu Web Dashboard (Non-blocking Dual-Core trigger)
   webServer.on("/api/voice/record", HTTP_POST, []() {
-    bool ok = recordAndRecognize();
-    String json = "{\"status\":\"" + String(ok ? "ok" : "fail") + "\",\"command\":\"" + escapeJson(lastVoiceResult) + "\"}";
+    triggerVoiceListen();
+    String json = "{\"status\":\"ok\",\"message\":\"Listening on Core 0\"}";
     webServer.sendHeader("Cache-Control", "no-store");
     webServer.send(200, "application/json; charset=utf-8", json);
   });

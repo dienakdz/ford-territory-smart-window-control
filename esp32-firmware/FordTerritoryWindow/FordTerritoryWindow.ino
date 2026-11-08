@@ -90,6 +90,11 @@ void loop() {
   unsigned long now = millis();
 
   // ---------------------------------------------------------------------------
+  // [BƯỚC 0]: XỬ LÝ LỆNH GIỌNG NÓI TỪ CORE 0 (DUAL-CORE INTER-CORE SIGNAL)
+  // ---------------------------------------------------------------------------
+  checkVoicePendingReq();
+
+  // ---------------------------------------------------------------------------
   // [BƯỚC 1]: ĐỌC VÀ CHỐNG RUNG (DEBOUNCE) CÔNG TẮC KÍNH
   // ---------------------------------------------------------------------------
   // Luôn đọc công tắc ở mọi chế độ để hệ thống phản hồi tức thì
@@ -150,7 +155,7 @@ void loop() {
   if (Serial.available()) {
     char c = Serial.read();
     if (c == 'R' || c == 'r') {
-      recordAndRecognize();
+      triggerVoiceListen();
     } else if (c == 'P' || c == 'p') {
       testVoiceServerPing();
     }
