@@ -24,6 +24,11 @@
 // Cam bien dong ACS712 qua mach chia ap (Doc qua ADC GPIO10)
 #define ACS_ADC_PIN 10
 
+// Micro so I2S INMP441 thu am giong noi
+#define PIN_I2S_BCLK 14  // INMP441 SCK
+#define PIN_I2S_WS   15  // INMP441 WS
+#define PIN_I2S_DIN  16  // INMP441 SD (L/R pin noi xuong GND de thu kenh trai Mono)
+
 
 // =====================================================
 // 2. CAU HINH THAM SO VAN HANH CHUNG
@@ -78,3 +83,25 @@ const char * const AP_SSID = "FORD-WINDOW-DEBUG";
 const char * const AP_PASSWORD = "12345678";
 const size_t LOG_CAPACITY = 90;
 const size_t LOG_LINE_LEN = 148;
+
+// --- WI-FI STATION CHO IPHONE HOTSPOT (GIAI PHAP 1 - IP TINH) ---
+// Thay doi SSID va PASSWORD ben duoi neu ban doi ten Hotspot iPhone
+const char * const STA_SSID = "Diệnn";
+const char * const STA_PASSWORD = "39393939";
+
+// IP tinh co dinh cho ESP32 trong mang iPhone Hotspot (Mo Dashboard: http://172.20.10.3)
+// LUU Y: iPhone Hotspot su dung Subnet Mask /28 (255.255.255.240), dai IP hop le chi tu 172.20.10.1 den 172.20.10.14
+const IPAddress STA_STATIC_IP(172, 20, 10, 3);
+const IPAddress STA_GATEWAY(172, 20, 10, 1);
+const IPAddress STA_SUBNET(255, 255, 255, 240);
+const IPAddress STA_DNS(172, 20, 10, 1);
+
+// Dia chi Flask Voice Server chay tren Laptop (cung mang iPhone Hotspot)
+const char * const FLASK_SERVER_BASE = "http://172.20.10.2:5000";
+
+// --- THAM SO THU AM GIONG NOI INMP441 ---
+const uint32_t VOICE_SAMPLE_RATE = 16000;
+const size_t VOICE_RECORD_SECONDS = 3;
+const size_t VOICE_SAMPLE_COUNT = VOICE_SAMPLE_RATE * VOICE_RECORD_SECONDS; // 48,000 samples
+const size_t VOICE_PCM_BYTES = VOICE_SAMPLE_COUNT * sizeof(int16_t);       // 96,000 bytes
+const int VOICE_MIC_GAIN = 4; // Do khuếch đại phan mem (giam tu 8 xuong 4 de chong clip am)

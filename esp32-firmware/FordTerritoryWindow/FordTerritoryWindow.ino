@@ -45,6 +45,7 @@
 #include "src/anti_pinch/anti_pinch.h"
 #include "src/calibration/calibration.h"
 #include "src/web/web_server.h"
+#include "src/voice/voice_control.h"
 
 // Thời điểm cập nhật giá trị dòng điện lên Web Dashboard định kỳ
 unsigned long lastStatusSampleMs = 0;
@@ -57,9 +58,10 @@ void setup() {
   Serial.begin(115200);
   delay(100);
 
-  // [3] Khởi tạo các chân đọc tín hiệu tương tự (ADC)
+  // [3] Khởi tạo các chân đọc tín hiệu tương tự (ADC) và micro I2S
   switchInit();             // Cấu hình GPIO1 cho công tắc kính 4 nấc
   antiPinchInit();          // Cấu hình GPIO10 cho cảm biến dòng ACS712
+  voiceInit();              // Cấu hình GPIO14, 15, 16 cho micro số INMP441
   analogReadResolution(12); // Độ phân giải 12-bit (0 - 4095)
 
   logEvent("[BOOT] Ford Territory Window Control Starting...");
@@ -67,8 +69,10 @@ void setup() {
   // [4] Đọc cấu hình Baseline từ bộ nhớ NVS Flash (nếu đã từng hiệu chuẩn thành công)
   loadCalibration();
 
-  // [5] Khởi động trạm phát Wi-Fi độc lập và Web Dashboard (FORD-WINDOW-DEBUG / 192.168.4.1)
-  startAP();
+  // [5] Khởi động Wi-Fi chế độ kép (WIFI_AP_STA):
+  //     - Kết nối iPhone Hotspot với Static IP 172.20.10.50
+  //     - Duy trì AP dự phòng 192.168.4.1 (FORD-WINDOW-DEBUG)
+  startWiFi();
 
   // [6] Kiểm tra xem người dùng có giữ tổ hợp phím vào CAL ngay lúc khởi động hay không
   checkBootCal();
@@ -139,6 +143,19 @@ void loop() {
   // ---------------------------------------------------------------------------
   // [BƯỚC 3]: CẬP NHẬT DỮ LIỆU TELEMETRY & WEB DASHBOARD
   // ---------------------------------------------------------------------------
+  // Giám sát kết nối Wi-Fi với iPhone Hotspot và tự động ping Flask server
+  checkWiFiStatus();
+
+  // Nhận lệnh thu âm / ping qua Serial nếu có cắm cáp debug
+  if (Serial.available()) {
+    char c = Serial.read();
+    if (c == 'R' || c == 'r') {
+      recordAndRecognize();
+    } else if (c == 'P' || c == 'p') {
+      testVoiceServerPing();
+    }
+  }
+
   // Cập nhật giá trị đo ACS712 mỗi 200ms phục vụ hiển thị lên Web Dashboard
   if (now - lastStatusSampleMs >= 200) {
     lastStatusSampleMs = now;
