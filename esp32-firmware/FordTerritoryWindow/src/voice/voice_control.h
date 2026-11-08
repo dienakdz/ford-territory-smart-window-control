@@ -15,7 +15,7 @@ void voiceInit();
 // Kiem tra ket noi den Flask Voice Server tren Laptop
 bool testVoiceServerPing();
 
-// Kich hoat lang nghe giong noi (mo cua so 10 giay, Non-blocking)
+// Kich hoat thu am 1 lan 2 giay (Non-blocking, giao cho Core 0 thuc hien)
 void triggerVoiceListen();
 
 // Kiem tra va thuc thi lenh giong noi tren Core 1 (goi trong loop)

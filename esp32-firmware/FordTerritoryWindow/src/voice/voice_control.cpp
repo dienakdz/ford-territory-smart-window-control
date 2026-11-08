@@ -30,7 +30,7 @@ void voiceInit() {
     logEvent("[VOICE] LOI: Khoi tao I2S micro INMP441 that bai!");
     return;
   }
-  logEvent("[VOICE] Micro INMP441 san sang (GPIO14/15/16 | 16kHz | 2s).");
+  logEvent("[VOICE] Micro INMP441 san sang (GPIO14/15/16 | 16kHz | 2s | DC-Blocker).");
 
   // Cap phat bo dem co dinh 64KB (2 giay)
   if (psramFound()) {
@@ -58,8 +58,7 @@ void voiceInit() {
 
 void triggerVoiceListen() {
   voiceTriggerRequested = true;
-  voiceActiveUntilMs = millis() + VOICE_ACTIVE_WINDOW_MS;
-  logEvent("[VOICE] Bat dau thu am 2 giay...\n[VOICE] Hay noi: \"nang kinh\" / \"ha kinh\" / \"dung lai\"...");
+  logEvent("[VOICE] Bat dau thu am 2 giay... Hay noi: \"nang kinh\" / \"ha kinh\" / \"dung lai\"...");
 }
 
 bool recordAndRecognize() {
@@ -79,8 +78,8 @@ bool testVoiceServerPing() {
     return false;
   }
 
-  http.setConnectTimeout(400);
-  http.setTimeout(600);
+  http.setConnectTimeout(2500);
+  http.setTimeout(3000);
   int code = http.GET();
   bool success = false;
 
@@ -105,40 +104,45 @@ bool testVoiceServerPing() {
 static void voiceTaskLoop(void *pvParameters) {
   logEvent("[DUAL-CORE] Bo nao lang nghe Core 0 da khoi dong thanh cong!");
 
-  while (true) {
-    unsigned long now = millis();
-    bool shouldListen = false;
-    bool explicitButton = false;
+  // Bien trang thai bo loc DC-Blocker IIR (fc ~ 35Hz)
+  float dcPrevX = 0.0f;
+  float dcPrevY = 0.0f;
+  const float dcAlpha = 0.985f;
 
-    // Kiem tra neu co yeu cau kich hoat tu Web / Serial
+  while (true) {
+    // -------------------------------------------------------------------------
+    // KIỂM TRA ĐIỀU KIỆN THU ÂM:
+    // 1. isUserTriggered: Người dùng bấm nút trên Web Dashboard hoặc gửi Serial 'R'
+    //    -> Chỉ thu âm ĐÚNG 1 LẦN (2s), không lặp lại!
+    // 2. isMotorMoving: Kính đang thực sự chạy (motorState != STOPPED)
+    //    -> Thu âm để rình bắt lệnh ngắt STOP/ĐẢO CHIỀU. Khi kính dừng -> DỪNG NGAY!
+    // -------------------------------------------------------------------------
+    bool isUserTriggered = false;
     if (voiceTriggerRequested) {
       voiceTriggerRequested = false;
-      explicitButton = true;
-      voiceActiveUntilMs = now + VOICE_ACTIVE_WINDOW_MS;
-      shouldListen = true;
+      isUserTriggered = true;
     }
 
-    // Neu kinh dang chay (UP hoac DOWN): Luon tu dong lang nghe de bat lenh STOP / DAO CHIEU!
-    if (motorState != STOPPED) {
-      shouldListen = true;
-    }
+    bool isMotorMoving = (motorState != STOPPED);
 
-    // Neu con trong cua so 10 giay sau khi ra lenh
-    if (now < voiceActiveUntilMs) {
-      shouldListen = true;
-    }
-
-    // Neu khong can nghe, hoac chua co Wi-Fi / chua co RAM: tam nghi 50ms
-    if (!shouldListen || WiFi.status() != WL_CONNECTED || voicePcmBuffer == nullptr) {
+    // Neu khong ai an nut VA kinh khong chay: Nghi 50ms, tuyet doi khong thu am
+    if (!isUserTriggered && !isMotorMoving) {
       isVoiceRecording = false;
       vTaskDelay(pdMS_TO_TICKS(50));
       continue;
     }
 
-    // --- TIEN HANH THU AM 2 GIAY DONG BO ---
+    // Neu chua ket noi Wi-Fi hoac khong co bo dem RAM
+    if (WiFi.status() != WL_CONNECTED || voicePcmBuffer == nullptr) {
+      isVoiceRecording = false;
+      vTaskDelay(pdMS_TO_TICKS(50));
+      continue;
+    }
+
+    // --- TIẾN HÀNH THU ÂM 2 GIÂY ---
     isVoiceRecording = true;
 
-    // Xoa sach mau ton dong trong bo dem I2S
+    // Xoa sach du lieu cu trong bo dem I2S
     mic.readBytes(reinterpret_cast<char *>(rawSamples), sizeof(rawSamples));
 
     size_t recorded = 0;
@@ -163,33 +167,45 @@ static void voiceTaskLoop(void *pvParameters) {
       emptyReads = 0;
 
       for (size_t i = 0; i < gotSamples && recorded < VOICE_SAMPLE_COUNT; i++) {
-        int32_t v = (rawSamples[i] >> 16) * VOICE_MIC_GAIN;
-        if (v > 32767) v = 32767;
-        if (v < -32768) v = -32768;
-        voicePcmBuffer[recorded++] = static_cast<int16_t>(v);
-        int mag = v >= 0 ? v : -v;
+        // Lay 16-bit cao va nhan do khuech dai
+        float raw = static_cast<float>((rawSamples[i] >> 16) * VOICE_MIC_GAIN);
+
+        // BỘ LỌC DC BLOCKER: Triet tieu hoan toan troi DC va tieng un 0 - 20Hz
+        float filtered = raw - dcPrevX + dcAlpha * dcPrevY;
+        dcPrevX = raw;
+        dcPrevY = filtered;
+
+        // Bo qua 200 mau dau tien luc khoi dong bo loc
+        int32_t val = (recorded < 200) ? 0 : static_cast<int32_t>(filtered);
+        if (val > 32767) val = 32767;
+        if (val < -32768) val = -32768;
+
+        voicePcmBuffer[recorded++] = static_cast<int16_t>(val);
+
+        int mag = val >= 0 ? val : -val;
         if (mag > peak) peak = mag;
-        sumSquares += static_cast<uint64_t>(v * v);
+        sumSquares += static_cast<uint64_t>(val * val);
       }
     }
 
-    // [BỘ LỌC VAD - VOICE ACTIVITY DETECTION]:
-    // Nếu người dùng không ấn nút và âm thanh chỉ là tiếng ồn phòng (peak < 220),
-    // bỏ qua và không gửi sang Google để tránh nghẽn mạng và spam "Không rõ từ ngữ"!
-    if (!explicitButton && peak < VOICE_MIN_SPEECH_PEAK) {
+    // [BỘ LỌC VAD CHỐNG SPAM]:
+    // Khi đang rình bắt lệnh ngắt lúc motor chạy:
+    // Nếu peak < VOICE_MIN_SPEECH_PEAK: Chi la tieng on co khi / tieng gio / im lang
+    // -> Bo qua, KHONG gui sang Google de tranh nghien mang va spam "(Khong ro tu ngu)"!
+    if (!isUserTriggered && peak < VOICE_MIN_SPEECH_PEAK) {
       isVoiceRecording = false;
-      vTaskDelay(pdMS_TO_TICKS(40));
+      vTaskDelay(pdMS_TO_TICKS(20));
       continue;
     }
 
-    // --- GUI SANG FLASK SERVER (LAPTOP) QUA HTTP POST ---
+    // --- GỬI SANG FLASK SERVER (LAPTOP) QUA HTTP POST ---
     WiFiClient client;
     HTTPClient http;
     String url = String(FLASK_SERVER_BASE) + "/recognize";
 
     if (http.begin(client, url)) {
-      http.setConnectTimeout(500);
-      http.setTimeout(2500);
+      http.setConnectTimeout(2500);
+      http.setTimeout(8000);
       http.addHeader("Content-Type", "application/octet-stream");
 
       int code = http.POST(reinterpret_cast<uint8_t *>(voicePcmBuffer), recorded * sizeof(int16_t));
@@ -209,15 +225,20 @@ static void voiceTaskLoop(void *pvParameters) {
           logEvent(String("[VOICE] LENH: [ ") + command + " ]");
         }
       } else {
-        // Neu khong ket noi duoc Flask Server, tat cua so lang nghe de khong treo Core 0
+        // [BẢO VỆ TOÀN DIỆN]: Nếu không kết nối được Flask Server (chưa bật server hoặc mất mạng),
+        // tắt ngay trạng thái lắng nghe để Core 0 không bị kẹt trong các chu kỳ timeout 2.5s liên tục,
+        // giúp giữ băng thông Wi-Fi và đảm bảo nút Calibration (CAL) trên Web Dashboard phản hồi tức thì!
         voiceActiveUntilMs = 0;
+        voiceTriggerRequested = false;
+        lastVoiceResult = "SERVER_ERROR";
+        logEvent(String("[VOICE] Loi ket noi Flask Server (Code ") + String(code) + "). Huy lang nghe de bao ve Web/Calibration.");
       }
 
       http.end();
 
-      // --- PHAN LOAI VA THUC THI LENH GIONG NOI ---
+      // --- PHÂN LOẠI VÀ THỰC THI LỆNH GIỌNG NÓI ---
       if (command == "STOP") {
-        // [KHAN CAP]: Dung motor ngay lap tuc tren Core 0 (0ms latency)!
+        // [KHẨN CẤP]: Cắt điện motor ngay lập tức trên Core 0 (0ms latency)!
         motorStop();
         lastVoiceResult = "STOP";
         voicePendingReq = VOICE_REQ_STOP;
@@ -225,23 +246,25 @@ static void voiceTaskLoop(void *pvParameters) {
       } else if (command == "AUTO_DOWN" || command == "DOWN") {
         lastVoiceResult = "AUTO DOWN";
         voicePendingReq = VOICE_REQ_AUTO_DOWN;
-        voiceActiveUntilMs = millis() + VOICE_ACTIVE_WINDOW_MS;
       } else if (command == "AUTO_UP" || command == "UP") {
         lastVoiceResult = "AUTO UP";
         voicePendingReq = VOICE_REQ_AUTO_UP;
-        voiceActiveUntilMs = millis() + VOICE_ACTIVE_WINDOW_MS;
       }
+    } else {
+      voiceActiveUntilMs = 0;
+      voiceTriggerRequested = false;
+      logEvent("[VOICE] Khong the ket noi Flask Server. Da huy lang nghe.");
     }
 
     isVoiceRecording = false;
 
-    // Nghi nhe 20ms giua cac block
+    // Nghỉ nhẹ 20ms
     vTaskDelay(pdMS_TO_TICKS(20));
   }
 }
 
 // ==============================================================================
-// HAM KIEM TRA VA CAP NHAT TRANG THAI TREN CORE 1 (Goi trong loop)
+// HÀM KIỂM TRA VÀ THỰC THI LỆNH TRÊN CORE 1 (Gọi trong loop)
 // ==============================================================================
 void checkVoicePendingReq() {
   if (voicePendingReq == VOICE_REQ_NONE) {

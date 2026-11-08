@@ -66,8 +66,8 @@ pre{white-space:pre-wrap;height:calc(100vh - 120px);min-height:500px;max-height:
   <!-- CỘT TRÁI: ĐIỀU KHIỂN & THÔNG SỐ (col-6) -->
   <div class="col-left">
     <div class="voice-box">
-      <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (2s / Dual-Core)</button>
-      <span id="voiceNotice" class="small" style="color:#7dd3fc">Đồng bộ 2 giây toàn hệ thống. Tự động nhận diện lệnh ngắt khi kính chạy!</span>
+      <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (2s)</button>
+      <span id="voiceNotice" class="small" style="color:#7dd3fc">Nhấn nút ➔ nói lệnh (2s). Khi kính đang chạy, tự động lắng nghe để ngắt dừng!</span>
     </div>
 
     <div class="cal-box">
@@ -119,6 +119,12 @@ pre{white-space:pre-wrap;height:calc(100vh - 120px);min-height:500px;max-height:
 const e=id=>document.getElementById(id);
 let inFlight=false;
 let calActivePrev=false;
+let pollTimer=null;
+
+function scheduleTick(delay){
+ if(pollTimer) clearTimeout(pollTimer);
+ pollTimer=setTimeout(tick, delay);
+}
 
 async function triggerVoice(){
  const btn=e('btnVoice'),st=e('voiceNotice');
@@ -127,11 +133,12 @@ async function triggerVoice(){
  try{
   const r=await fetch('/api/voice/record',{method:'POST'});
   const d=await r.json();
-  st.textContent='Hệ thống đang mở cửa sổ 10s lắng nghe! Bạn có thể hô "dừng" bất cứ lúc nào khi kính chạy.';
+  st.textContent='Đã gửi âm thanh sang Laptop phân tích...';
+  scheduleTick(50);
  }catch(err){
   st.textContent='Lỗi kết nối: '+err.message;
  }finally{
-  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';}, 2000);
+  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';st.textContent='Nhấn nút ➔ nói lệnh (2s). Khi kính đang chạy, tự động lắng nghe để ngắt dừng!';}, 2500);
  }
 }
 
@@ -144,6 +151,7 @@ async function triggerCal(){
   const d=await r.json();
   if(d.status==='ok'){
     st.textContent='✅ Đã vào chế độ CAL! Kính đang tự hạ xuống BOTTOM...';
+    scheduleTick(50);
   }else{
     st.textContent='⚠️ '+d.message;
   }
@@ -160,6 +168,7 @@ async function abortCalAction(){
   const r=await fetch('/api/cal/abort',{method:'POST'});
   const d=await r.json();
   st.textContent='Đã hủy CAL, quay về NORMAL.';
+  scheduleTick(50);
  }catch(err){
   st.textContent='Lỗi kết nối: '+err.message;
  }
@@ -168,6 +177,7 @@ async function abortCalAction(){
 async function tick(){
  if(inFlight)return;
  inFlight=true;
+ let nextDelay=1000;
  const ctl=new AbortController(),tid=setTimeout(()=>ctl.abort(),1500);
  try{
   const r=await fetch('/api/status',{cache:'no-store',signal:ctl.signal});
@@ -180,7 +190,11 @@ async function tick(){
   e('samples').textContent=s.samples+' mẫu / '+s.result;
   e('limits').textContent=(s.top?'TOP CHẠM':'TOP OK')+' / '+(s.bottom?'BOTTOM CHẠM':'BOTTOM OK');
   e('wifi_sta').textContent=s.wifi_sta;
-  e('conn').textContent='ESP32 IP: '+s.ip+' | Realtime Live';
+  e('conn').textContent='ESP32 IP: '+s.ip+' | Live';
+
+  // Adaptive polling: Khi kinh chay hoac dang CAL thi 250ms, khi nghi thi 1000ms (1s)
+  const isBusy = s.cal_mode || (s.motor && s.motor !== 'STOPPED');
+  nextDelay = isBusy ? 250 : 1000;
 
   if(s.cal_mode){
     calActivePrev=true;
@@ -207,8 +221,14 @@ async function tick(){
     el.textContent=s.lines.join('\n')||'(trống)';
     if(follow) el.scrollTop=el.scrollHeight;
   }
- }catch(err){e('conn').textContent='Đang cập nhật... '+err.message;}
- finally{inFlight=false;setTimeout(tick,250);}
+ }catch(err){
+  e('conn').textContent='Đang cập nhật... '+err.message;
+  nextDelay=1500;
+ }
+ finally{
+  inFlight=false;
+  scheduleTick(nextDelay);
+ }
 }tick();
 </script></main></body></html>
 )HTML";
