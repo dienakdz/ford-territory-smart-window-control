@@ -1,5 +1,4 @@
 #include "web_server.h"
-#include <ESPmDNS.h>
 #include "../logger/logger.h"
 #include "../motor/motor_control.h"
 #include "../switch/switch_control.h"
@@ -46,7 +45,7 @@ pre{white-space:pre-wrap;min-height:220px;max-height:450px;overflow:auto;backgro
 <p class="notice">BẢN THỬ NGHIỆM. Ngưỡng ACS712 +40mV. Chống kẹt tự động đảo chiều hạ kính 1 giây.</p>
 
 <div class="voice-box">
-  <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (3s)</button>
+  <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (2s)</button>
   <span id="voiceNotice" class="small" style="color:#7dd3fc">3 lệnh hỗ trợ: "nâng kính" (AUTO UP) | "hạ kính" (AUTO DOWN) | "dừng kính" (STOP)</span>
 </div>
 
@@ -76,7 +75,7 @@ let inFlight=false;
 async function triggerVoice(){
  const btn=e('btnVoice'),st=e('voiceNotice');
  btn.disabled=true;btn.style.opacity='0.5';
- st.textContent='🎙️ Đang thu âm 3s từ micro INMP441... Hãy nói: "nâng kính" / "hạ kính" / "dừng kính"...';
+ st.textContent='🎙️ Đang thu âm 2s từ micro INMP441... Hãy nói: "nâng kính" / "hạ kính" / "dừng kính"...';
  try{
   const r=await fetch('/api/voice/record',{method:'POST'});
   const d=await r.json();
@@ -107,7 +106,7 @@ async function tick(){
     if(follow) el.scrollTop=el.scrollHeight;
   }
  }catch(err){e('conn').textContent='Đang cập nhật... '+err.message;}
- finally{inFlight=false;setTimeout(tick,350);}
+ finally{inFlight=false;setTimeout(tick,100);}
 }tick();
 </script></main></body></html>
 )HTML";
@@ -201,11 +200,6 @@ void startWiFi() {
 
   webServer.onNotFound([]() { webServer.send(404, "text/plain", "Not found"); });
   webServer.begin();
-
-  // Khoi tao mDNS de co the truy cap qua http://ford-window.local
-  if (MDNS.begin("ford-window")) {
-    MDNS.addService("http", "tcp", 80);
-  }
 
   logEvent(String("[WIFI] AP du phong: ") + AP_SSID + " | http://192.168.4.1");
   logEvent(String("[WIFI] Dang ket noi iPhone: ") + STA_SSID + " (Static IP: 172.20.10.3)...");

@@ -156,8 +156,8 @@ void loop() {
     }
   }
 
-  // Cập nhật giá trị đo ACS712 mỗi 200ms phục vụ hiển thị lên Web Dashboard
-  if (now - lastStatusSampleMs >= 200) {
+  // Cập nhật giá trị đo ACS712 siêu mượt mỗi 50ms phục vụ hiển thị Realtime lên Web Dashboard
+  if (now - lastStatusSampleMs >= 50) {
     lastStatusSampleMs = now;
     latestAcsMv = readAcsVoltageMv();
   }

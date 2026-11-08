@@ -19,9 +19,9 @@ from flask import Flask, Response, request
 HOST = "0.0.0.0"    # Lang nghe tren moi card mang cua Laptop
 PORT = 5000
 SAMPLE_RATE = 16_000
-DURATION_SECONDS = 3
+DURATION_SECONDS = 2
 SAMPLE_WIDTH = 2  # PCM signed 16-bit
-EXPECTED_BYTES = SAMPLE_RATE * DURATION_SECONDS * SAMPLE_WIDTH  # 96,000 bytes
+EXPECTED_BYTES = SAMPLE_RATE * DURATION_SECONDS * SAMPLE_WIDTH  # 64,000 bytes (2s de phan hoi nhanh)
 SAVE_LAST_WAV = True
 LAST_WAV_PATH = Path(__file__).resolve().parent / "last_voice.wav"
 
@@ -153,6 +153,6 @@ if __name__ == "__main__":
     print(f"Server dang lang nghe tai: http://0.0.0.0:{PORT}")
     print(f"Dia chi IP Laptop trong mang Hotspot: http://{laptop_ip}:{PORT}")
     print(f"ESP32 se gui am thanh ve: http://{laptop_ip}:{PORT}/recognize")
-    print(f"Mo Dashboard ESP32 tai: http://172.20.10.3 hoac http://ford-window.local")
+    print(f"Mo Dashboard ESP32 tai: http://172.20.10.3")
     print("=" * 60)
     app.run(host=HOST, port=PORT, debug=False, use_reloader=False)

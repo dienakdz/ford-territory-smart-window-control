@@ -83,7 +83,7 @@ bool recordAndRecognize() {
   int peak = 0;
   uint64_t sumSquares = 0;
 
-  logEvent("[VOICE] BAT DAU THU AM (3s) - HAY NOI (nang kinh / ha kinh / dung kinh)...");
+  logEvent("[VOICE] BAT DAU THU AM (2s) - HAY NOI (nang kinh / ha kinh / dung kinh)...");
 
   while (recorded < VOICE_SAMPLE_COUNT) {
     size_t want = min(BLOCK_SAMPLES, VOICE_SAMPLE_COUNT - recorded);
@@ -116,7 +116,7 @@ bool recordAndRecognize() {
   }
 
   double rms = sqrt(static_cast<double>(sumSquares) / VOICE_SAMPLE_COUNT);
-  logEvent(String("[VOICE] Thu am xong 3s | Peak=") + String(peak) + " | RMS=" + String(rms, 1));
+  logEvent(String("[VOICE] Thu am xong 2s | Peak=") + String(peak) + " | RMS=" + String(rms, 1));
 
   if (peak < 50) {
     logEvent("[VOICE] Canh bao: Am thanh qua nho hoac micro bi ngat.");

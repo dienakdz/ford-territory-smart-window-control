@@ -101,7 +101,7 @@ const char * const FLASK_SERVER_BASE = "http://172.20.10.2:5000";
 
 // --- THAM SO THU AM GIONG NOI INMP441 ---
 const uint32_t VOICE_SAMPLE_RATE = 16000;
-const size_t VOICE_RECORD_SECONDS = 3;
-const size_t VOICE_SAMPLE_COUNT = VOICE_SAMPLE_RATE * VOICE_RECORD_SECONDS; // 48,000 samples
-const size_t VOICE_PCM_BYTES = VOICE_SAMPLE_COUNT * sizeof(int16_t);       // 96,000 bytes
+const size_t VOICE_RECORD_SECONDS = 2; // Rut ngan xuong 2s de phan hoi nhanh, realtime
+const size_t VOICE_SAMPLE_COUNT = VOICE_SAMPLE_RATE * VOICE_RECORD_SECONDS; // 32,000 samples
+const size_t VOICE_PCM_BYTES = VOICE_SAMPLE_COUNT * sizeof(int16_t);       // 64,000 bytes
 const int VOICE_MIC_GAIN = 4; // Do khuếch đại phan mem (giam tu 8 xuong 4 de chong clip am)
