@@ -52,8 +52,8 @@ const unsigned long DEBUG_INTERVAL_MS = 250;
 
 // --- NGUONG THU NGHIEM CHONG KET ---
 // Nguong phat hien ket = Baseline da do + Margin
-const int ANTI_PINCH_MARGIN_MV = 50;
-const bool ENABLE_EXPERIMENTAL_REVERSE = false; // false: STOP + LOG; true: dao chieu 1s sau khi da kiem chung an toan
+const int ANTI_PINCH_MARGIN_MV = 40;
+const bool ENABLE_EXPERIMENTAL_REVERSE = true; // true: tu dong dao chieu ha kinh 1s khi phat hien ket AUTO UP
 
 // --- THAM SO HIEU CHUAN (CALIBRATION) ---
 const unsigned long CAL_BOOT_HOLD_MS = 2000;        // Thoi gian giu nut khi thao tac vao CAL (ms)
@@ -75,6 +75,6 @@ const uint32_t CAL_VERSION = 1u;
 
 // --- WI-FI ACCESS POINT & DASHBOARD ---
 const char * const AP_SSID = "FORD-WINDOW-DEBUG";
-const char * const AP_PASSWORD = "FordWindow!26";
+const char * const AP_PASSWORD = "12345678";
 const size_t LOG_CAPACITY = 90;
 const size_t LOG_LINE_LEN = 148;
