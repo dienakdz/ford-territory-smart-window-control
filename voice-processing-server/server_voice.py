@@ -1,175 +1,75 @@
-"""Ford Territory - ESP32-S3 -> Flask -> Google STT (LAN / Hotspot).
-
-Input: POST /recognize, application/octet-stream
-       3 seconds of signed little-endian PCM16 mono at 16 kHz (96,000 bytes).
-Output: text/plain: AUTO_UP, AUTO_DOWN, STOP, or UNKNOWN.
 """
-
-import re
-import socket
-import traceback
-import unicodedata
-import wave
-from pathlib import Path
-
-import numpy as np
-import speech_recognition as sr
+Ford Territory Smart Window Control - Voice Processing Server
+Flask LAN Server routing requests from ESP32-S3 to Google STT and NLP Engine.
+"""
 from flask import Flask, Response, request
 
-HOST = "0.0.0.0"    # Lang nghe tren moi card mang cua Laptop
-PORT = 5000
-SAMPLE_RATE = 16_000
-DURATION_SECONDS = 2  # Dong bo 2 giay de thu day du tron ven vanh chu
-SAMPLE_WIDTH = 2  # PCM signed 16-bit
-EXPECTED_BYTES = SAMPLE_RATE * DURATION_SECONDS * SAMPLE_WIDTH  # 64,000 bytes (2 giay)
-SAVE_LAST_WAV = True
-LAST_WAV_PATH = Path(__file__).resolve().parent / "last_voice.wav"
+import config
+from audio import get_audio_signal_metrics, recognize_speech_from_pcm, save_wav_file
+from network import get_laptop_ip
+from nlp import compute_similarity_command
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 128 * 1024  # Cho phep dem du toi 128KB, khong bao gio loi 413
-
-recognizer = sr.Recognizer()
-recognizer.operation_timeout = 10  # Timeout nhanh 10s
-
-# 3 CHE DO GIONG NOI: AUTO UP, AUTO DOWN, STOP (Chuan xac, an toan tuyet doi)
-PHRASES = {
-    "AUTO_UP": {
-        "nâng kính", "nâng kính ghế phụ", "lên kính", "kéo kính lên", "mở kính lên",
-        "nâng kính lên", "auto lên", "auto up", "kéo lên", "nâng cánh", "lên cánh", "lên kín"
-    },
-    "AUTO_DOWN": {
-        "hạ kính", "hạ kính ghế phụ", "xuống kính", "kéo kính xuống", "mở kính xuống",
-        "hạ kính xuống", "auto xuống", "auto down", "kéo xuống", "hạ cánh", "hạ kín"
-    },
-    "STOP": {
-        "dừng", "dừng lại", "dừng kính", "ngừng", "ngưng", "ngừng kính", 
-        "dừng kính lại", "stop", "thôi", "đứng lại", "đứng"
-    },
-}
+app.config["MAX_CONTENT_LENGTH"] = config.MAX_CONTENT_LENGTH
 
 
-def get_laptop_ip():
-    """Lay dia chi IP cua Laptop trong mang Hotspot/LAN."""
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("172.20.10.1", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        try:
-            return socket.gethostbyname(socket.gethostname())
-        except Exception:
-            return "172.20.10.2"
-
-
-def normalize(text: str) -> str:
-    text = unicodedata.normalize("NFC", text).lower().strip()
-    text = re.sub(r"[^\w\s]", " ", text, flags=re.UNICODE)
-    return " ".join(text.split())
-
-
-def to_command(text: str) -> str:
-    phrase = normalize(text)
-    if not phrase:
-        return "UNKNOWN"
-
-    # [ƯU TIÊN 1 - KHẨN CẤP]: LỆNH DỪNG (STOP)
-    stop_keywords = ["dừng", "ngừng", "ngưng", "stop", "thôi", "đứng lại", "dừng lại", "đứng"]
-    for kw in stop_keywords:
-        if kw in phrase:
-            return "STOP"
-
-    # [ƯU TIÊN 2]: LỆNH HẠ KÍNH (AUTO DOWN)
-    # Bao gồm cả "hạ cánh", "hạ kín" (do Google STT thường nhận dạng nhầm từ "hạ kính")
-    down_keywords = [
-        "hạ kính", "hạ cánh", "hạ kín", "xuống kính", "kéo kính xuống", 
-        "hạ xuống", "xuống", "mở kính", "auto down", "kéo xuống", "hạ"
-    ]
-    for kw in down_keywords:
-        if kw in phrase:
-            return "AUTO_DOWN"
-
-    # [ƯU TIÊN 3]: LỆNH NÂNG KÍNH (AUTO UP)
-    # Bao gồm cả "nâng cánh", "lên cánh", "lên kín" (do Google STT thường nhận nhầm)
-    up_keywords = [
-        "nâng kính", "nâng cánh", "lên kính", "lên cánh", "lên kín", 
-        "kéo kính lên", "nâng lên", "lên", "đóng kính", "auto up", "kéo lên"
-    ]
-    for kw in up_keywords:
-        if kw in phrase:
-            return "AUTO_UP"
-
-    # Đối chiếu toàn bộ tập hợp mẫu
-    for command, accepted_phrases in PHRASES.items():
-        if phrase in accepted_phrases:
-            return command
-    return "UNKNOWN"
-
-
-def reply(command: str, transcription: str = "", status: int = 200) -> Response:
+def make_response(command: str, transcription: str = "", status: int = 200) -> Response:
+    """Tao HTTP response tra ve cho ESP32."""
     body = f"{command}:{transcription}" if transcription else command
     return Response(body, status=status, content_type="text/plain; charset=utf-8")
 
 
 @app.get("/ping")
-def ping() -> Response:
+def handle_ping() -> Response:
+    """Kiem tra ket noi mang giua ESP32 va Laptop."""
     client_ip = request.remote_addr
     print(f"\n[PING] ESP32 da ket noi tu: http://{client_ip}", flush=True)
     print(f"[DASHBOARD] Mo Web Dashboard tai: http://{client_ip}\n", flush=True)
-    return reply("PONG")
+    return make_response("PONG")
 
 
 @app.post("/recognize")
-def recognize() -> Response:
+def handle_recognize() -> Response:
+    """Nhan stream PCM16 tu ESP32, nhan dang Google STT va tra ve lenh dieu khien."""
     if request.mimetype != "application/octet-stream":
-        print(f"[ERROR] Sai content type: {request.mimetype}", flush=True)
-        return reply("UNKNOWN", 415)
+        print(f"[ERROR] Sai Content-Type: {request.mimetype}", flush=True)
+        return make_response("UNKNOWN", status=415)
 
-    pcm = request.get_data(cache=False)
-    print(f"\n[AUDIO] Nhan {len(pcm)} bytes tu ESP32 (ky vong ~{EXPECTED_BYTES})", flush=True)
-    if len(pcm) < 8000:
+    pcm_data = request.get_data(cache=False)
+    print(f"\n[AUDIO] Nhan {len(pcm_data)} bytes tu ESP32", flush=True)
+
+    if len(pcm_data) < config.MIN_AUDIO_BYTES:
         print("[ERROR] Du lieu am thanh qua ngan (< 0.25s)", flush=True)
-        return reply("UNKNOWN", 400)
+        return make_response("UNKNOWN", status=400)
 
-    samples = np.frombuffer(pcm, dtype="<i2")
-    peak = int(np.max(np.abs(samples.astype(np.int32))))
-    rms = float(np.sqrt(np.mean(samples.astype(np.float64) ** 2)))
-    print(f"[AUDIO] Tin hieu am thanh: Peak={peak}, RMS={rms:.1f}", flush=True)
+    # Tinh toan tin hieu am thanh & ghi file WAV de nghe lai khi can
+    peak, rms = get_audio_signal_metrics(pcm_data)
+    print(f"[AUDIO] Tin hieu: Peak={peak}, RMS={rms:.1f}", flush=True)
+    save_wav_file(pcm_data)
 
-    if SAVE_LAST_WAV:
-        try:
-            with wave.open(str(LAST_WAV_PATH), "wb") as wav:
-                wav.setnchannels(1)
-                wav.setsampwidth(SAMPLE_WIDTH)
-                wav.setframerate(SAMPLE_RATE)
-                wav.writeframes(pcm)
-            print(f"[AUDIO] Da ghi file: {LAST_WAV_PATH.name}", flush=True)
-        except OSError as error:
-            print(f"[WARN] Khong the luu file WAV: {error}", flush=True)
-
-    # Tin hieu qua nho (im lang)
-    if peak < 50:
+    if peak < 45:
         print("[AUDIO] Am thanh qua nho / im lang -> UNKNOWN", flush=True)
-        return reply("UNKNOWN")
+        return make_response("UNKNOWN")
 
-    audio_data = sr.AudioData(pcm, SAMPLE_RATE, SAMPLE_WIDTH)
-    try:
-        print("[GOOGLE] Dang gui Google Speech Recognition (vi-VN)...", flush=True)
-        transcription = recognizer.recognize_google(audio_data, language="vi-VN")
-        command = to_command(transcription)
-        print(f"[GOOGLE] Van ban nhan dang: \"{transcription}\"", flush=True)
-        print(f"[RESULT] LENH XAC NHAN: ===> [ {command} ]", flush=True)
-        return reply(command, transcription)
-    except sr.UnknownValueError:
+    # Goi Google Speech Recognition
+    transcription, error_status = recognize_speech_from_pcm(pcm_data)
+    if error_status == "UNKNOWN_WORDS":
         print("[RESULT] Google khong nhan dang duoc tu ngu: UNKNOWN", flush=True)
-        return reply("UNKNOWN", "(Không rõ từ ngữ)")
-    except sr.RequestError as error:
-        print(f"[ERROR] Loi ket noi mang Google STT: {error}", flush=True)
-        return reply("UNKNOWN", "Lỗi mạng Google", 503)
-    except Exception:
-        traceback.print_exc()
-        return reply("UNKNOWN", 500)
+        return make_response("UNKNOWN", "(Không rõ từ ngữ)")
+    elif error_status == "NETWORK_ERROR":
+        return make_response("UNKNOWN", "Lỗi mạng Google", status=503)
+
+    # Xu ly NLP do tuong dong de quyet dinh lenh
+    command, score, match_info = compute_similarity_command(transcription)
+    if command != "UNKNOWN":
+        print(f"[NLP MATCH] \"{transcription}\" ==> [{command}] | Do tuong dong: {score*100:.1f}% ({match_info})", flush=True)
+        display_text = f"{transcription} ({int(score*100)}%)"
+    else:
+        print(f"[NLP IGNORE] Bo qua cau tro chuyen: \"{transcription}\" (Do khop: {score*100:.1f}% < {config.SIMILARITY_THRESHOLD*100:.0f}%)", flush=True)
+        display_text = f"{transcription} (ngoai luong)"
+
+    print(f"[RESULT] LENH XAC NHAN: ===> [ {command} ]", flush=True)
+    return make_response(command, display_text)
 
 
 if __name__ == "__main__":
@@ -178,9 +78,9 @@ if __name__ == "__main__":
     print(" FORD TERRITORY VOICE CONTROL SERVER (FLASK)")
     print(" 3 CHE DO: AUTO UP | AUTO DOWN | STOP")
     print("=" * 60)
-    print(f"Server dang lang nghe tai: http://0.0.0.0:{PORT}")
-    print(f"Dia chi IP Laptop trong mang Hotspot: http://{laptop_ip}:{PORT}")
-    print(f"ESP32 se gui am thanh ve: http://{laptop_ip}:{PORT}/recognize")
+    print(f"Server dang lang nghe tai: http://{config.HOST}:{config.PORT}")
+    print(f"Dia chi IP Laptop trong mang Hotspot: http://{laptop_ip}:{config.PORT}")
+    print(f"ESP32 se gui am thanh ve: http://{laptop_ip}:{config.PORT}/recognize")
     print(f"Mo Dashboard ESP32 tai: http://172.20.10.3")
     print("=" * 60)
-    app.run(host=HOST, port=PORT, debug=False, use_reloader=False)
+    app.run(host=config.HOST, port=config.PORT, debug=False, use_reloader=False)
