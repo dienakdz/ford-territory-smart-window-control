@@ -24,6 +24,7 @@ static int16_t *voicePcmBuffer = nullptr;
 static void voiceTaskLoop(void *pvParameters);
 
 void voiceInit() {
+  pinMode(VOICE_BUTTON_PIN, INPUT_PULLUP);
   mic.setPins(PIN_I2S_BCLK, PIN_I2S_WS, -1, PIN_I2S_DIN);
   if (!mic.begin(I2S_MODE_STD, VOICE_SAMPLE_RATE, I2S_DATA_BIT_WIDTH_32BIT,
                  I2S_SLOT_MODE_MONO, I2S_STD_SLOT_LEFT)) {
@@ -260,6 +261,38 @@ static void voiceTaskLoop(void *pvParameters) {
 
     // Nghỉ nhẹ 20ms
     vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+// ==============================================================================
+// GIÁM SÁT NÚT BẤM VẬT LÝ VOICE PTT (GPIO2) TRONG LOOP
+// ==============================================================================
+void monitorVoiceButton() {
+  static int lastReading = HIGH;
+  static int stableState = HIGH;
+  static unsigned long lastDebounceTime = 0;
+  const unsigned long debounceDelay = 50;
+
+  int reading = digitalRead(VOICE_BUTTON_PIN);
+
+  if (reading != lastReading) {
+    lastDebounceTime = millis();
+    lastReading = reading;
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    if (reading != stableState) {
+      stableState = reading;
+      // Khi nhấn nút: chuyển từ HIGH (kéo lên) -> LOW (nối GND)
+      if (stableState == LOW) {
+        if (!isVoiceRecording) {
+          logEvent("[VOICE PTT] Nút nhấn vật lý (GPIO2) kích hoạt -> Bắt đầu thu âm giọng nói!");
+          triggerVoiceListen();
+        } else {
+          logEvent("[VOICE PTT] Đang trong phiên thu âm, bỏ qua lượt nhấn lặp lại.");
+        }
+      }
+    }
   }
 }
 

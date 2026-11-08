@@ -90,9 +90,10 @@ void loop() {
   unsigned long now = millis();
 
   // ---------------------------------------------------------------------------
-  // [BƯỚC 0]: XỬ LÝ LỆNH GIỌNG NÓI TỪ CORE 0 (DUAL-CORE INTER-CORE SIGNAL)
+  // [BƯỚC 0]: XỬ LÝ LỆNH GIỌNG NÓI TỪ CORE 0 & GIÁM SÁT NÚT BẤM VOICE (PTT)
   // ---------------------------------------------------------------------------
   checkVoicePendingReq();
+  monitorVoiceButton();
 
   // ---------------------------------------------------------------------------
   // [BƯỚC 1]: ĐỌC VÀ CHỐNG RUNG (DEBOUNCE) CÔNG TẮC KÍNH

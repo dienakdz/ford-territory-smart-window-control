@@ -29,6 +29,10 @@
 #define PIN_I2S_WS   15  // INMP441 WS
 #define PIN_I2S_DIN  16  // INMP441 SD (L/R pin noi xuong GND de thu kenh trai Mono)
 
+// Nut bam vat ly kich hoat giong noi (Push-To-Talk PTT Voice Button)
+// Dau 1 chan vao GPIO2, 1 chan vao GND (ESP32 dung INPUT_PULLUP noi, khong can them tro ngoai)
+#define VOICE_BUTTON_PIN 2
+
 
 // =====================================================
 // 2. CAU HINH THAM SO VAN HANH CHUNG

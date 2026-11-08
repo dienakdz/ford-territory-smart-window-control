@@ -42,9 +42,15 @@ def get_audio_signal_metrics(pcm_bytes: bytes):
 def recognize_speech_from_pcm(pcm_bytes: bytes) -> tuple[str, str]:
     """
     Gui buffer PCM16 sang Google Speech Recognition.
+    Tu dong dem 400ms im lang (zero-padding) o cuoi de Google bat tron ven am duoi
+    ma khong bi loi UnknownValueError do cat dot ngot vien file.
     Tra ve tuple: (transcription, error_status)
     """
-    audio_data = sr.AudioData(pcm_bytes, SAMPLE_RATE, SAMPLE_WIDTH)
+    # Dem 400ms (0.4s) im lang vao duoi am thanh
+    trailing_padding = b"\x00" * int(SAMPLE_RATE * 0.4 * SAMPLE_WIDTH)
+    padded_pcm = pcm_bytes + trailing_padding
+
+    audio_data = sr.AudioData(padded_pcm, SAMPLE_RATE, SAMPLE_WIDTH)
     try:
         print("[GOOGLE] Dang gui Google Speech Recognition (vi-VN)...", flush=True)
         text = recognizer.recognize_google(audio_data, language=GOOGLE_STT_LANGUAGE)

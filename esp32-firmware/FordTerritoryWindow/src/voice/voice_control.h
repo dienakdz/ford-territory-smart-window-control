@@ -18,6 +18,9 @@ bool testVoiceServerPing();
 // Kich hoat thu am 1 lan 2 giay (Non-blocking, giao cho Core 0 thuc hien)
 void triggerVoiceListen();
 
+// Giam sat nut bam vat ly Voice PTT (GPIO2) trong vong lap loop
+void monitorVoiceButton();
+
 // Kiem tra va thuc thi lenh giong noi tren Core 1 (goi trong loop)
 void checkVoicePendingReq();
 
