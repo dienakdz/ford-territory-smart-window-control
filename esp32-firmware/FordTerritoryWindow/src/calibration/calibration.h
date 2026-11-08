@@ -24,6 +24,9 @@ void trackCalGesture(unsigned long now);
 // Kiem tra thao tac CAL ngay khi vua cap nguon ESP32
 void checkBootCal();
 
+// Kich hoat che do CAL truc tiep tu Web Dashboard hoac lenh ngoai
+bool startCal();
+
 // May trang thai dieu khien toan bo quy trinh Calibration
 void handleCal(unsigned long now);
 

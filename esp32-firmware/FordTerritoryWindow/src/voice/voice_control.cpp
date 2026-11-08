@@ -79,8 +79,8 @@ bool testVoiceServerPing() {
     return false;
   }
 
-  http.setConnectTimeout(2500);
-  http.setTimeout(3000);
+  http.setConnectTimeout(400);
+  http.setTimeout(600);
   int code = http.GET();
   bool success = false;
 
@@ -188,8 +188,8 @@ static void voiceTaskLoop(void *pvParameters) {
     String url = String(FLASK_SERVER_BASE) + "/recognize";
 
     if (http.begin(client, url)) {
-      http.setConnectTimeout(2500);
-      http.setTimeout(8000);
+      http.setConnectTimeout(500);
+      http.setTimeout(2500);
       http.addHeader("Content-Type", "application/octet-stream");
 
       int code = http.POST(reinterpret_cast<uint8_t *>(voicePcmBuffer), recorded * sizeof(int16_t));
@@ -208,6 +208,9 @@ static void voiceTaskLoop(void *pvParameters) {
           command = resp;
           logEvent(String("[VOICE] LENH: [ ") + command + " ]");
         }
+      } else {
+        // Neu khong ket noi duoc Flask Server, tat cua so lang nghe de khong treo Core 0
+        voiceActiveUntilMs = 0;
       }
 
       http.end();

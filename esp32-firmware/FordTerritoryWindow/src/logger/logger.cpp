@@ -4,6 +4,7 @@
 char logRing[LOG_CAPACITY][LOG_LINE_LEN] = {};
 size_t logNext = 0;
 size_t logCount = 0;
+static portMUX_TYPE logMux = portMUX_INITIALIZER_UNLOCKED;
 
 // Tham chieu cac bien trang thai he thong
 extern MotorState motorState;
@@ -11,11 +12,14 @@ extern bool calMode;
 extern CalPhase calPhase;
 
 void logEvent(const String &message) {
+  portENTER_CRITICAL(&logMux);
   char *dest = logRing[logNext];
   snprintf(dest, LOG_LINE_LEN, "[%lus] %s", millis() / 1000UL, message.c_str());
-  Serial.println(dest);
   logNext = (logNext + 1) % LOG_CAPACITY;
   if (logCount < LOG_CAPACITY) ++logCount;
+  portEXIT_CRITICAL(&logMux);
+
+  Serial.println(dest);
 }
 
 const char *switchName(SwitchMode m) {

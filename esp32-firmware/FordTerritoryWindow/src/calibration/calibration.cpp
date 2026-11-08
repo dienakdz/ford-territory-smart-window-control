@@ -369,3 +369,17 @@ void checkBootCal() {
   calPhase = CAL_GO_DOWN;
   logEvent("[CAL] ACTIVATED! Release switch; window will auto DOWN to BOTTOM.");
 }
+
+bool startCal() {
+  if (calMode) {
+    logEvent("[CAL] He thong da dang trong che do CAL.");
+    return false;
+  }
+  calGestureState = GESTURE_IDLE;
+  motorStop();
+  calDownStarted = false;
+  calMode = true;
+  calPhase = CAL_GO_DOWN;
+  logEvent("[CAL] KICH HOAT TU DASHBOARD! Kinh se tu ha xuong BOTTOM de hoc baseline.");
+  return true;
+}

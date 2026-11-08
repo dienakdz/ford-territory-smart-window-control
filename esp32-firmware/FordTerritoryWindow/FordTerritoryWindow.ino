@@ -82,7 +82,7 @@ void setup() {
   if (calMode) {
     logEvent("[CAL] CALIBRATION ACTIVATED. Motor se tu ha xuong BOTTOM de chuan bi.");
   } else {
-    logEvent("[MODE] NORMAL MODE. De vao CAL: Giu AUTO DOWN 2s -> THA -> Giu AUTO UP 2s.");
+    logEvent("[MODE] NORMAL MODE. De vao CAL: Bam nut tren Web Dashboard hoac giu AUTO DOWN 2s -> THA -> Giu AUTO UP 2s.");
   }
 }
 
