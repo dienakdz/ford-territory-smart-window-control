@@ -33,6 +33,11 @@
 // Dau 1 chan vao GPIO2, 1 chan vao GND (ESP32 dung INPUT_PULLUP noi, khong can them tro ngoai)
 #define VOICE_BUTTON_PIN 2
 
+// Module khuech dai am thanh I2S MAX98357A + Loa ngoai
+#define PIN_I2S_SPK_BCLK 17 // MAX98357A BCLK (Bit Clock)
+#define PIN_I2S_SPK_LRC  18 // MAX98357A LRC / WS (Left/Right Clock / Word Select)
+#define PIN_I2S_SPK_DIN  21 // MAX98357A DIN (Data In noi voi GPIO21 ESP32)
+
 
 // =====================================================
 // 2. CAU HINH THAM SO VAN HANH CHUNG
@@ -131,3 +136,9 @@ const unsigned long STEP_TIME_UP_TWO_THIRDS_MS = (FULL_TRAVEL_TIME_UP_MS * 2) / 
 const unsigned long STEP_TIME_DOWN_HALF_MS = FULL_TRAVEL_TIME_DOWN_MS / 2;             // 2400 ms (~2.4s)
 const unsigned long STEP_TIME_DOWN_THIRD_MS = FULL_TRAVEL_TIME_DOWN_MS / 3;           // 1600 ms (~1.6s)
 const unsigned long STEP_TIME_DOWN_TWO_THIRDS_MS = (FULL_TRAVEL_TIME_DOWN_MS * 2) / 3;// 3200 ms (~3.2s)
+
+// --- CAU HINH LOA THONG MINH MAX98357A ---
+// false: Phat tieng thong bao cho ca lenh giong noi & nut bam / web khi hoan tat hanh trinh
+// true:  Chi phat tieng thong bao khi duoc dieu khien bang giong noi
+const bool SPEAKER_FEEDBACK_VOICE_ONLY = false;
+const float SPEAKER_VOLUME = 1.0f; // Muc am luong (0.0 den 1.0)

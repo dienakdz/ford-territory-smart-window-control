@@ -6,6 +6,7 @@
 #include "../logger/logger.h"
 #include "../motor/motor_control.h"
 #include "../storage/nvs_storage.h"
+#include "../speaker/speaker_control.h"
 
 String lastVoiceResult = "CHƯA CÓ LỆNH";
 bool isVoiceRecording = false;
@@ -69,8 +70,9 @@ bool testVoiceServerPing() {
     return false;
   }
 
-  http.setConnectTimeout(800);
-  http.setTimeout(1200);
+  // Tang timeout len 2500ms giup goi ARP dau tien trong mang iPhone Hotspot kip phan giai
+  http.setConnectTimeout(2500);
+  http.setTimeout(3500);
   int code = http.GET();
   bool success = false;
 
@@ -82,7 +84,15 @@ bool testVoiceServerPing() {
       success = true;
     }
   } else {
-    logEvent(String("[VOICE] Chua thay Flask Server tai ") + FLASK_SERVER_BASE + ". Hay bat server_voice.py");
+    // Thu lai lan 2 vi mang Hotspot thuong can vai tram ms de on dinh dinh tuyen
+    delay(400);
+    code = http.GET();
+    if (code == 200) {
+      logEvent(String("[VOICE] Da ket noi Flask Server tren Laptop! (") + FLASK_SERVER_BASE + ")");
+      success = true;
+    } else {
+      logEvent(String("[VOICE] Chua thay Flask Server tai ") + FLASK_SERVER_BASE + " (Code " + String(code) + "). Hay bat server_voice.py");
+    }
   }
 
   http.end();
@@ -314,6 +324,7 @@ void monitorVoiceButton() {
       if (stableState == LOW) {
         if (!isVoiceRecording) {
           logEvent("[VOICE PTT] Nút nhấn vật lý (GPIO2) kích hoạt -> Bắt đầu thu âm giọng nói!");
+          speakerStop(); // Ngat loa ngay lap tuc de khong lam nhieu micro INMP441 va tranh sut dong nguon
           triggerVoiceListen();
         } else {
           logEvent("[VOICE PTT] Đang trong phiên thu âm, bỏ qua lượt nhấn lặp lại.");
@@ -352,10 +363,12 @@ void checkVoicePendingReq() {
       motorStop();
       currentRunMode = MODE_MANUAL;
     } else {
+      isVoiceDriven = true;
       motorRun(true, MODE_AUTO);
       logEvent("[VOICE -> MOTOR] AUTO UP (Nang het kinh) kich hoat!");
     }
   } else if (req == VOICE_REQ_AUTO_DOWN) {
+    isVoiceDriven = true;
     motorRun(false, MODE_AUTO);
     logEvent("[VOICE -> MOTOR] AUTO DOWN (Ha het kinh) kich hoat!");
   } else if (req == VOICE_REQ_UP_HALF) {
@@ -364,6 +377,7 @@ void checkVoicePendingReq() {
       motorStop();
       currentRunMode = MODE_MANUAL;
     } else {
+      isVoiceDriven = true;
       motorRunTimed(true, stepUpHalf);
       logEvent(String("[VOICE -> MOTOR] NANG 1/2 KINH (") + String(stepUpHalf) + "ms) kich hoat!");
     }
@@ -373,6 +387,7 @@ void checkVoicePendingReq() {
       motorStop();
       currentRunMode = MODE_MANUAL;
     } else {
+      isVoiceDriven = true;
       motorRunTimed(true, stepUpThird);
       logEvent(String("[VOICE -> MOTOR] NANG 1/3 KINH (") + String(stepUpThird) + "ms) kich hoat!");
     }
@@ -382,16 +397,20 @@ void checkVoicePendingReq() {
       motorStop();
       currentRunMode = MODE_MANUAL;
     } else {
+      isVoiceDriven = true;
       motorRunTimed(true, stepUpTwoThirds);
       logEvent(String("[VOICE -> MOTOR] NANG 2/3 KINH (") + String(stepUpTwoThirds) + "ms) kich hoat!");
     }
   } else if (req == VOICE_REQ_DOWN_HALF) {
+    isVoiceDriven = true;
     motorRunTimed(false, stepDownHalf);
     logEvent(String("[VOICE -> MOTOR] HA 1/2 KINH (") + String(stepDownHalf) + "ms) kich hoat!");
   } else if (req == VOICE_REQ_DOWN_THIRD) {
+    isVoiceDriven = true;
     motorRunTimed(false, stepDownThird);
     logEvent(String("[VOICE -> MOTOR] HA 1/3 KINH (") + String(stepDownThird) + "ms) kich hoat!");
   } else if (req == VOICE_REQ_DOWN_TWO_THIRDS) {
+    isVoiceDriven = true;
     motorRunTimed(false, stepDownTwoThirds);
     logEvent(String("[VOICE -> MOTOR] HA 2/3 KINH (") + String(stepDownTwoThirds) + "ms) kich hoat!");
   }

@@ -7,6 +7,7 @@
 #include "../calibration/calibration.h"
 #include "../timing/timing_calibration.h"
 #include "../voice/voice_control.h"
+#include "../speaker/speaker_control.h"
 
 WebServer webServer(80);
 bool apReady = false;
@@ -72,6 +73,16 @@ pre{white-space:pre-wrap;height:calc(100vh - 120px);min-height:500px;max-height:
     <div class="voice-box">
       <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (3s)</button>
       <span id="voiceNotice" class="small" style="color:#7dd3fc">Nhấn nút ➔ nói lệnh: nâng/hạ hết, 1/2, 1/3 hoặc 2/3 kính (chỉ thu âm khi bấm nút).</span>
+    </div>
+
+    <div style="padding:10px;background:#172554;border:1px solid #3b82f6;border-radius:10px;display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:0.92rem;color:#93c5fd">🔊 LOA MAX98357A:</span>
+        <button style="background:#2563eb;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-weight:700;cursor:pointer" onclick="testSpeaker('up')">"Đã nâng kính"</button>
+        <button style="background:#1d4ed8;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-weight:700;cursor:pointer" onclick="testSpeaker('down')">"Đã hạ kính"</button>
+        <button style="background:#b91c1c;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-weight:700;cursor:pointer" onclick="testSpeaker('pinch')">"Kẹt kính"</button>
+      </div>
+      <span class="small" style="color:#bfdbfe">Khi nâng/hạ kính xong, loa sẽ tự động nói thông báo. Bấm các nút trên để kiểm tra loa ngay lập tức.</span>
     </div>
 
     <div class="cal-box">
@@ -140,6 +151,12 @@ let pollTimer=null;
 function scheduleTick(delay){
  if(pollTimer) clearTimeout(pollTimer);
  pollTimer=setTimeout(tick, delay);
+}
+
+async function testSpeaker(t){
+ try{
+  await fetch('/api/speaker/test?type='+encodeURIComponent(t),{method:'POST'});
+ }catch(err){console.error(err);}
 }
 
 async function triggerVoice(){
@@ -455,6 +472,24 @@ void startWiFi() {
   webServer.on("/api/timing/abort", HTTP_POST, []() {
     abortMeasure("Nguoi dung huy tu Web Dashboard");
     String json = "{\"status\":\"ok\",\"message\":\"Da huy do thoi gian.\"}";
+    webServer.sendHeader("Cache-Control", "no-store");
+    webServer.send(200, "application/json; charset=utf-8", json);
+  });
+
+  // Endpoint test loa MAX98357A tu Web Dashboard
+  webServer.on("/api/speaker/test", HTTP_POST, []() {
+    String type = webServer.arg("type");
+    if (type == "down") {
+      speakerPlay(SOUND_DOWN_DONE);
+      logEvent("[WEB] Test loa: \"Đã hạ kính\"");
+    } else if (type == "pinch") {
+      speakerPlay(SOUND_ANTI_PINCH);
+      logEvent("[WEB] Test loa: \"Cảnh báo kẹt kính\"");
+    } else {
+      speakerPlay(SOUND_UP_DONE);
+      logEvent("[WEB] Test loa: \"Đã nâng kính\"");
+    }
+    String json = "{\"status\":\"ok\",\"message\":\"Da gui lenh phat am thanh sang loa!\"}";
     webServer.sendHeader("Cache-Control", "no-store");
     webServer.send(200, "application/json; charset=utf-8", json);
   });

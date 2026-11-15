@@ -1,5 +1,6 @@
 #include "motor_control.h"
 #include "../logger/logger.h"
+#include "../speaker/speaker_control.h"
 
 MotorState motorState = STOPPED;
 RunMode currentRunMode = MODE_MANUAL;
@@ -134,7 +135,9 @@ void monitorLimits() {
   if (motorState == MOVING_UP && topReached()) {
     unsigned long elapsed = millis() - motorStartMs;
     logEvent(String("[LIMIT] CHAM DINH TOP! Thoi gian chay UP: ") + String(elapsed) + " ms (" + String(elapsed / 1000.0, 2) + "s)");
+    bool wasVoice = isVoiceDriven;
     motorStop();
+    notifyWindowMotionCompleted(true, wasVoice);
     currentRunMode = MODE_MANUAL;
     return;
   }
@@ -143,7 +146,9 @@ void monitorLimits() {
   if (motorState == MOVING_DOWN && bottomReached()) {
     unsigned long elapsed = millis() - motorStartMs;
     logEvent(String("[LIMIT] CHAM DAY BOTTOM! Thoi gian chay DOWN: ") + String(elapsed) + " ms (" + String(elapsed / 1000.0, 2) + "s)");
+    bool wasVoice = isVoiceDriven;
     motorStop();
+    notifyWindowMotionCompleted(false, wasVoice);
     currentRunMode = MODE_MANUAL;
     return;
   }
@@ -158,7 +163,10 @@ void monitorRunTimeout() {
   if (currentRunMode == MODE_TIMED_STEP && motorTimedTargetMs > 0) {
     if (millis() - motorStartMs >= motorTimedTargetMs) {
       logEvent(String("[TIMED STEP] Hoan tat buoc thoi gian (") + String(motorTimedTargetMs) + "ms). DUNG MOTOR.");
+      bool wasUp = (motorState == MOVING_UP);
+      bool wasVoice = isVoiceDriven;
       motorStop();
+      notifyWindowMotionCompleted(wasUp, wasVoice);
       currentRunMode = MODE_MANUAL;
       return;
     }

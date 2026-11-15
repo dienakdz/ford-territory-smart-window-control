@@ -47,9 +47,25 @@
 #include "src/timing/timing_calibration.h"
 #include "src/web/web_server.h"
 #include "src/voice/voice_control.h"
+#include "src/speaker/speaker_control.h"
 
 // Thời điểm cập nhật giá trị dòng điện lên Web Dashboard định kỳ
 unsigned long lastStatusSampleMs = 0;
+
+static void logResetReason() {
+  esp_reset_reason_t reason = esp_reset_reason();
+  String reasonStr = "";
+  switch (reason) {
+    case ESP_RST_POWERON:  reasonStr = "POWER_ON (Cắm nguồn mới)"; break;
+    case ESP_RST_SW:       reasonStr = "SOFTWARE_RESET (Khởi động bằng lệnh phần mềm)"; break;
+    case ESP_RST_PANIC:    reasonStr = "PANIC / CRASH (Lỗi Exception / Crash code)"; break;
+    case ESP_RST_INT_WDT:  reasonStr = "INT_WATCHDOG (Treo ngắt CPU)"; break;
+    case ESP_RST_TASK_WDT: reasonStr = "TASK_WATCHDOG (Task chạy quá lâu không nhả CPU)"; break;
+    case ESP_RST_BROWNOUT: reasonStr = "BROWNOUT (Sụt áp nguồn cấp 5V / 3.3V do quá tải dòng điện)"; break;
+    default: reasonStr = "CODE: " + String((int)reason); break;
+  }
+  logEvent(String("[RESET] Nguyen nhan khoi dong: ") + reasonStr);
+}
 
 void setup() {
   // [1] Khởi tạo driver BTS7960 ở trạng thái ngắt an toàn ngay lập tức
@@ -58,11 +74,13 @@ void setup() {
   // [2] Khởi tạo Serial giao tiếp máy tính (115200 baud)
   Serial.begin(115200);
   delay(100);
+  logResetReason(); // In ngay ly do khoi dong chip
 
-  // [3] Khởi tạo các chân đọc tín hiệu tương tự (ADC) và micro I2S
+  // [3] Khởi tạo các chân đọc tín hiệu tương tự (ADC), micro I2S và loa MAX98357A
   switchInit();             // Cấu hình GPIO1 cho công tắc kính 4 nấc
   antiPinchInit();          // Cấu hình GPIO10 cho cảm biến dòng ACS712
   voiceInit();              // Cấu hình GPIO14, 15, 16 cho micro số INMP441
+  speakerInit();            // Cấu hình GPIO17, 18, 21 cho Loa MAX98357A
   analogReadResolution(12); // Độ phân giải 12-bit (0 - 4095)
 
   logEvent("[BOOT] Ford Territory Window Control Starting...");
@@ -158,13 +176,22 @@ void loop() {
   // Giám sát kết nối Wi-Fi với iPhone Hotspot và tự động ping Flask server
   checkWiFiStatus();
 
-  // Nhận lệnh thu âm / ping qua Serial nếu có cắm cáp debug
+  // Nhận lệnh thu âm / ping / test loa qua Serial nếu có cắm cáp debug
   if (Serial.available()) {
     char c = Serial.read();
     if (c == 'R' || c == 'r') {
       triggerVoiceListen();
     } else if (c == 'P' || c == 'p') {
       testVoiceServerPing();
+    } else if (c == 'S' || c == 's') {
+      logEvent("[TEST] Phat thu loa: \"Đã nâng kính\"");
+      speakerPlay(SOUND_UP_DONE);
+    } else if (c == 'D' || c == 'd') {
+      logEvent("[TEST] Phat thu loa: \"Đã hạ kính\"");
+      speakerPlay(SOUND_DOWN_DONE);
+    } else if (c == 'A' || c == 'a') {
+      logEvent("[TEST] Phat thu loa: \"Cảnh báo kẹt kính\"");
+      speakerPlay(SOUND_ANTI_PINCH);
     }
   }
 

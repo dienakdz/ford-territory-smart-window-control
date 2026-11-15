@@ -2,6 +2,7 @@
 #include "../motor/motor_control.h"
 #include "../storage/nvs_storage.h"
 #include "../logger/logger.h"
+#include "../speaker/speaker_control.h"
 
 int latestAcsMv = 0;
 bool acsHighDetected = false;
@@ -65,6 +66,9 @@ void monitorAntiPinch() {
 
       motorStop();
       currentRunMode = MODE_MANUAL;
+
+      // Phat am thanh canh bao kẹt kinh
+      speakerPlay(SOUND_ANTI_PINCH);
 
       if (ENABLE_EXPERIMENTAL_REVERSE && !bottomReached()) {
         motorRun(false, MODE_ANTI_PINCH_REVERSE);
