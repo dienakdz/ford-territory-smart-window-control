@@ -114,5 +114,5 @@ const size_t VOICE_RECORD_SECONDS = 2; // Dong bo 2 giay toan he thong
 const size_t VOICE_SAMPLE_COUNT = VOICE_SAMPLE_RATE * VOICE_RECORD_SECONDS; // 32,000 samples (2 giay)
 const size_t VOICE_PCM_BYTES = VOICE_SAMPLE_COUNT * sizeof(int16_t);       // 64,000 bytes
 const int VOICE_MIC_GAIN = 2; // He so khuech dai chuan (tranh vo am / clip am khi noi gan)
-const int VOICE_MIN_SPEECH_PEAK = 180; // Nguong VAD khi an nut PTT thu am (do nhay cao)
-const int VOICE_INTERRUPT_MIN_PEAK = 1800; // Nguong VAD khi motor chay do voice (loc sach tieng dong co ~600-800, chi gui khi nguoi noi >1800)
+const int VOICE_MIN_SPEECH_PEAK = 180; // Nguong VAD khi bam nut thu am (Click-to-talk, do nhay cao)
+// (Da bo co che tu dong thu am ngat khi motor chay)

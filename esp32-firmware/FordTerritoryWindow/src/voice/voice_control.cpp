@@ -59,7 +59,7 @@ void voiceInit() {
 
 void triggerVoiceListen() {
   voiceTriggerRequested = true;
-  logEvent("[VOICE] Bat dau thu am 2 giay... Hay noi: \"nang kinh\" / \"ha kinh\" / \"dung lai\"...");
+  logEvent("[VOICE] Bat dau thu am 2 giay... Hay noi: \"nang kinh\" / \"ha kinh\"...");
 }
 
 bool recordAndRecognize() {
@@ -112,11 +112,9 @@ static void voiceTaskLoop(void *pvParameters) {
 
   while (true) {
     // -------------------------------------------------------------------------
-    // KIỂM TRA ĐIỀU KIỆN THU ÂM (PHÂN BIỆT NGUỒN KÍCH HOẠT):
-    // 1. isUserTriggered: Người dùng bấm nút PTT (GPIO2) hoặc Web Dashboard
-    // 2. isVoiceDriven && motorState != STOPPED: Kính đang chạy DO LỆNH GIỌNG NÓI
-    //    -> Mở cửa sổ rình bắt lệnh ngắt ("Dừng lại", "Hạ kính") mà không cần bấm PTT!
-    //    -> Nếu kính chạy do công tắc tay ở cửa hoặc tự chống kẹt: isVoiceDriven == false -> NGỦ YÊN!
+    // KIỂM TRA ĐIỀU KIỆN THU ÂM (CHỈ THU ÂM KHI CLICK BẤM NÚT):
+    // Chỉ kích hoạt khi người dùng nhấn nút vật lý PTT (GPIO2) hoặc click trên Web Dashboard.
+    // KHÔNG tự động ghi âm khi kính đang chạy nữa.
     // -------------------------------------------------------------------------
     bool isUserTriggered = false;
     if (voiceTriggerRequested) {
@@ -124,10 +122,8 @@ static void voiceTaskLoop(void *pvParameters) {
       isUserTriggered = true;
     }
 
-    bool shouldListen = isUserTriggered || (isVoiceDriven && motorState != STOPPED);
-
-    // Neu khong ai an nut PTT VA khong trong phien chay do giong noi: Nghi 50ms
-    if (!shouldListen) {
+    // Nếu không ai bấm nút kích hoạt: Nghỉ 50ms để nhường CPU
+    if (!isUserTriggered) {
       isVoiceRecording = false;
       vTaskDelay(pdMS_TO_TICKS(50));
       continue;
@@ -152,12 +148,6 @@ static void voiceTaskLoop(void *pvParameters) {
     uint64_t sumSquares = 0;
 
     while (recorded < VOICE_SAMPLE_COUNT) {
-      // Neu dang trong phien rinh lenh ngat (khong phai nguoi dung bam PTT)
-      // ma motor da dung lai (cham LIMIT TOP/BOTTOM hoac dung): dung thu ngay lap tuc!
-      if (!isUserTriggered && (!isVoiceDriven || motorState == STOPPED)) {
-        break;
-      }
-
       size_t want = min(BLOCK_SAMPLES, VOICE_SAMPLE_COUNT - recorded);
       size_t gotBytes = mic.readBytes(
           reinterpret_cast<char *>(rawSamples), want * sizeof(int32_t));
@@ -195,20 +185,9 @@ static void voiceTaskLoop(void *pvParameters) {
       }
     }
 
-    // Neu trong phien rinh lenh ngat ma motor da dung truoc khi thu xong: bo qua, khong gui
-    if (!isUserTriggered && (!isVoiceDriven || motorState == STOPPED)) {
-      isVoiceRecording = false;
-      vTaskDelay(pdMS_TO_TICKS(20));
-      continue;
-    }
-
-    // [BỘ LỌC VAD ĐA TẦNG CHỐNG SPAM]:
-    // - Khi người dùng chủ động bấm PTT: Dùng ngưỡng nhạy VOICE_MIN_SPEECH_PEAK (180)
-    // - Khi đang rình lệnh ngắt lúc motor chạy: Dùng ngưỡng VOICE_INTERRUPT_MIN_PEAK (1800)
-    //   để triệt tiêu hoàn toàn tiếng rè rè cơ học của motor (~600-800).
-    //   Nếu người dùng im lặng (chỉ có tiếng motor): bỏ qua ngay, KHÔNG gửi sang Google!
-    int vadThreshold = isUserTriggered ? VOICE_MIN_SPEECH_PEAK : VOICE_INTERRUPT_MIN_PEAK;
-    if (peak < vadThreshold) {
+    // Kiểm tra ngưỡng biên độ giọng nói (VAD) khi bấm nút
+    if (peak < VOICE_MIN_SPEECH_PEAK) {
+      logEvent("[VOICE] Am thanh qua nho hoac khong co tieng noi.");
       isVoiceRecording = false;
       vTaskDelay(pdMS_TO_TICKS(20));
       continue;
@@ -241,37 +220,31 @@ static void voiceTaskLoop(void *pvParameters) {
           logEvent(String("[VOICE] LENH: [ ") + command + " ]");
         }
       } else {
-        // [BẢO VỆ TOÀN DIỆN]: Nếu không kết nối được Flask Server (chưa bật server hoặc mất mạng),
-        // tắt ngay trạng thái lắng nghe để Core 0 không bị kẹt trong các chu kỳ timeout 2.5s liên tục,
-        // giúp giữ băng thông Wi-Fi và đảm bảo nút Calibration (CAL) trên Web Dashboard phản hồi tức thì!
         voiceActiveUntilMs = 0;
         voiceTriggerRequested = false;
         isVoiceDriven = false;
         lastVoiceResult = "SERVER_ERROR";
-        logEvent(String("[VOICE] Loi ket noi Flask Server (Code ") + String(code) + "). Huy lang nghe de bao ve Web/Calibration.");
+        logEvent(String("[VOICE] Loi ket noi Flask Server (Code ") + String(code) + ").");
       }
 
       http.end();
 
       // --- PHÂN LOẠI VÀ THỰC THI LỆNH GIỌNG NÓI ---
-      if (command == "STOP") {
-        // [KHẨN CẤP]: Cắt điện motor ngay lập tức trên Core 0 (0ms latency)!
-        motorStop();
-        lastVoiceResult = "STOP";
-        voicePendingReq = VOICE_REQ_STOP;
-        logEvent("[VOICE INTERRUPT] DUNG KINH THANH CONG BANG GIONG NOI!");
-      } else if (command == "AUTO_DOWN" || command == "DOWN") {
+      // Chỉ còn nâng kính (AUTO_UP) và hạ kính (AUTO_DOWN), không còn nhận lệnh STOP
+      if (command == "AUTO_DOWN" || command == "DOWN") {
         lastVoiceResult = "AUTO DOWN";
         voicePendingReq = VOICE_REQ_AUTO_DOWN;
       } else if (command == "AUTO_UP" || command == "UP") {
         lastVoiceResult = "AUTO UP";
         voicePendingReq = VOICE_REQ_AUTO_UP;
+      } else {
+        lastVoiceResult = command;
       }
     } else {
       voiceActiveUntilMs = 0;
       voiceTriggerRequested = false;
       isVoiceDriven = false;
-      logEvent("[VOICE] Khong the ket noi Flask Server. Da huy lang nghe.");
+      logEvent("[VOICE] Khong the ket noi Flask Server.");
     }
 
     isVoiceRecording = false;
@@ -324,24 +297,17 @@ void checkVoicePendingReq() {
   VoiceCommandReq req = voicePendingReq;
   voicePendingReq = VOICE_REQ_NONE;
 
-  if (req == VOICE_REQ_STOP) {
-    motorStop();
-    isVoiceDriven = false;
-    currentRunMode = MODE_MANUAL;
-  } else if (req == VOICE_REQ_AUTO_UP) {
+  if (req == VOICE_REQ_AUTO_UP) {
     if (!baselineValid) {
       logEvent("[SAFE] AUTO UP bi khoa: Chua co baseline hop le. Hay CAL truoc.");
       motorStop();
-      isVoiceDriven = false;
       currentRunMode = MODE_MANUAL;
     } else {
       motorRun(true, MODE_AUTO);
-      isVoiceDriven = true; // Kich hoat phien chay do giong noi: Mo cua so lang nghe lenh ngat!
-      logEvent("[VOICE -> MOTOR] AUTO UP kich hoat thanh cong (Dang mo cua so lang nghe lenh ngat)!");
+      logEvent("[VOICE -> MOTOR] AUTO UP (Nang het kinh) kich hoat thanh cong!");
     }
   } else if (req == VOICE_REQ_AUTO_DOWN) {
     motorRun(false, MODE_AUTO);
-    isVoiceDriven = true; // Kich hoat phien chay do giong noi: Mo cua so lang nghe lenh ngat!
-    logEvent("[VOICE -> MOTOR] AUTO DOWN kich hoat thanh cong (Dang mo cua so lang nghe lenh ngat)!");
+    logEvent("[VOICE -> MOTOR] AUTO DOWN (Ha het kinh) kich hoat thanh cong!");
   }
 }

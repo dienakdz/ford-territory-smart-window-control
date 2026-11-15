@@ -67,7 +67,7 @@ pre{white-space:pre-wrap;height:calc(100vh - 120px);min-height:500px;max-height:
   <div class="col-left">
     <div class="voice-box">
       <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (2s)</button>
-      <span id="voiceNotice" class="small" style="color:#7dd3fc">Nhấn nút ➔ nói lệnh (2s). Khi kính đang chạy, tự động lắng nghe để ngắt dừng!</span>
+      <span id="voiceNotice" class="small" style="color:#7dd3fc">Nhấn nút ➔ nói lệnh: nâng kính hoặc hạ kính (chỉ thu âm khi bấm nút).</span>
     </div>
 
     <div class="cal-box">
@@ -129,7 +129,7 @@ function scheduleTick(delay){
 async function triggerVoice(){
  const btn=e('btnVoice'),st=e('voiceNotice');
  btn.disabled=true;btn.style.opacity='0.6';
- st.textContent='🎙️ Đang thu âm 2s... Hãy nói: "nâng kính" / "hạ kính" / "dừng lại"!';
+ st.textContent='🎙️ Đang thu âm 2s... Hãy nói: "nâng kính" / "hạ kính"!';
  try{
   const r=await fetch('/api/voice/record',{method:'POST'});
   const d=await r.json();
@@ -138,7 +138,7 @@ async function triggerVoice(){
  }catch(err){
   st.textContent='Lỗi kết nối: '+err.message;
  }finally{
-  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';st.textContent='Nhấn nút ➔ nói lệnh (2s). Khi kính đang chạy, tự động lắng nghe để ngắt dừng!';}, 2500);
+  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';st.textContent='Nhấn nút ➔ nói lệnh: nâng kính hoặc hạ kính (chỉ thu âm khi bấm nút).';}, 2500);
  }
 }
 

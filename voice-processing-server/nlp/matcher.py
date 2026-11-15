@@ -3,13 +3,16 @@ import difflib
 
 from config import SIMILARITY_THRESHOLD
 from .normalizer import normalize
-from .profiles import COMMAND_PROFILES, STOP_URGENT_KEYWORDS
+from .profiles import COMMAND_PROFILES
+
+# Cac tu khoa can loai tru / bo qua hoan toan (khong thuc hien bat ky lenh nao)
+IGNORE_KEYWORDS = ["dừng", "ngừng", "ngưng", "stop", "thôi", "đứng lại"]
 
 
 def compute_similarity_command(spoken_text: str):
     """
     Thuat toan Fuzzy NLP Matching:
-    So khop do tuong dong chuoi & N-grams voi cac tap mau menh lenh.
+    So khop do tuong dong chuoi & N-grams voi tap mau menh lenh (AUTO_UP, AUTO_DOWN).
     Tra ve tuple: (COMMAND, SCORE, MATCH_INFO)
     """
     norm = normalize(spoken_text)
@@ -17,12 +20,12 @@ def compute_similarity_command(spoken_text: str):
     if not words:
         return "UNKNOWN", 0.0, "Rỗng"
 
-    # [ƯU TIÊN 1 - KHẨN CẤP]: LỆNH DỪNG (STOP)
-    for kw in STOP_URGENT_KEYWORDS:
+    # [BẢO VỆ]: Nếu câu nói chứa từ khóa dừng/ngưng, bỏ qua ngay (không so khớp nhầm sang nâng/hạ)
+    for kw in IGNORE_KEYWORDS:
         if kw in norm:
-            return "STOP", 1.0, f"Khẩn cấp (từ khóa '{kw}')"
+            return "UNKNOWN", 0.0, f"Bỏ qua lệnh dừng ('{kw}')"
 
-    # [ƯU TIÊN 2]: Trich xuat N-grams de bat y chinh trong cau noi dai
+    # Trich xuat N-grams de bat y chinh trong cau noi (vd: "em oi ha kinh xuong di")
     ngrams = set()
     ngrams.add(norm)
     for n in (1, 2, 3):
