@@ -147,8 +147,14 @@ void monitorLimits() {
     unsigned long elapsed = millis() - motorStartMs;
     logEvent(String("[LIMIT] CHAM DAY BOTTOM! Thoi gian chay DOWN: ") + String(elapsed) + " ms (" + String(elapsed / 1000.0, 2) + "s)");
     bool wasVoice = isVoiceDriven;
+    bool wasReverse = (currentRunMode == MODE_ANTI_PINCH_REVERSE);
     motorStop();
-    notifyWindowMotionCompleted(false, wasVoice);
+    if (wasReverse) {
+      logEvent("[CHONG KET] Da cham day trong khi dao chieu ha kinh - DUNG MOTOR.");
+      speakerPlay(SOUND_ANTI_PINCH);
+    } else {
+      notifyWindowMotionCompleted(false, wasVoice);
+    }
     currentRunMode = MODE_MANUAL;
     return;
   }

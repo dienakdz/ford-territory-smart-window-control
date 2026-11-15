@@ -41,7 +41,7 @@ def array_to_c(name, data):
 def main():
     up = fetch_and_process("Đã nâng kính")
     down = fetch_and_process("Đã hạ kính")
-    pinch = fetch_and_process("Cảnh báo kẹt kính")
+    pinch = fetch_and_process("Kẹt kính, đã hạ kính")
     beep = make_beep()
 
     speaker_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "esp32-firmware", "FordTerritoryWindow", "src", "speaker"))

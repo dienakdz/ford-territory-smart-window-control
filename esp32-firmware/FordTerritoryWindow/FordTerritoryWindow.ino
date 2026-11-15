@@ -190,7 +190,7 @@ void loop() {
       logEvent("[TEST] Phat thu loa: \"Đã hạ kính\"");
       speakerPlay(SOUND_DOWN_DONE);
     } else if (c == 'A' || c == 'a') {
-      logEvent("[TEST] Phat thu loa: \"Cảnh báo kẹt kính\"");
+      logEvent("[TEST] Phat thu loa: \"Cảnh báo kẹt kính, đã hạ kính\"");
       speakerPlay(SOUND_ANTI_PINCH);
     }
   }

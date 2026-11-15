@@ -67,12 +67,15 @@ void monitorAntiPinch() {
       motorStop();
       currentRunMode = MODE_MANUAL;
 
-      // Phat am thanh canh bao kẹt kinh
-      speakerPlay(SOUND_ANTI_PINCH);
+      // Toi uu nguon dien: KHONG phat loa luc nay de tranh sut ap khi motor khoi dong dao chieu!
+      // Cho motor ha kinh 1s xong -> Dung han -> Loa moi phat "Canh bao ket kinh, da ha kinh"
 
       if (ENABLE_EXPERIMENTAL_REVERSE && !bottomReached()) {
         motorRun(false, MODE_ANTI_PINCH_REVERSE);
         logEvent("[CHONG KET] Bat dau ha kinh toi da 1s.");
+      } else {
+        // Neu khong dao chieu (hoac da cham day), phat canh bao ngay
+        speakerPlay(SOUND_ANTI_PINCH);
       }
 
       acsHighDetected = false;
@@ -94,5 +97,8 @@ void monitorAntiPinchReverse() {
     motorStop();
     currentRunMode = MODE_MANUAL;
     logEvent("[CHONG KET] Da ha kinh 1s sau khi ket - DUNG MOTOR.");
+
+    // Motor da dung han, nguon dien on dinh 100% -> Phat loa thong bao:
+    speakerPlay(SOUND_ANTI_PINCH);
   }
 }

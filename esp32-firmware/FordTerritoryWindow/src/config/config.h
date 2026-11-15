@@ -141,4 +141,4 @@ const unsigned long STEP_TIME_DOWN_TWO_THIRDS_MS = (FULL_TRAVEL_TIME_DOWN_MS * 2
 // false: Phat tieng thong bao cho ca lenh giong noi & nut bam / web khi hoan tat hanh trinh
 // true:  Chi phat tieng thong bao khi duoc dieu khien bang giong noi
 const bool SPEAKER_FEEDBACK_VOICE_ONLY = false;
-const float SPEAKER_VOLUME = 1.0f; // Muc am luong (0.0 den 1.0)
+const float SPEAKER_VOLUME = 0.75f; // Muc am luong toi uu (75% am luong van rat to ro, tiet kiem 40% dong dien nguon)

@@ -80,7 +80,7 @@ pre{white-space:pre-wrap;height:calc(100vh - 120px);min-height:500px;max-height:
         <span style="font-weight:700;font-size:0.92rem;color:#93c5fd">🔊 LOA MAX98357A:</span>
         <button style="background:#2563eb;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-weight:700;cursor:pointer" onclick="testSpeaker('up')">"Đã nâng kính"</button>
         <button style="background:#1d4ed8;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-weight:700;cursor:pointer" onclick="testSpeaker('down')">"Đã hạ kính"</button>
-        <button style="background:#b91c1c;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-weight:700;cursor:pointer" onclick="testSpeaker('pinch')">"Kẹt kính"</button>
+        <button style="background:#b91c1c;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-weight:700;cursor:pointer" onclick="testSpeaker('pinch')">"Kẹt kính (Đã hạ)"</button>
       </div>
       <span class="small" style="color:#bfdbfe">Khi nâng/hạ kính xong, loa sẽ tự động nói thông báo. Bấm các nút trên để kiểm tra loa ngay lập tức.</span>
     </div>
@@ -397,6 +397,7 @@ void startWiFi() {
   WiFi.softAP(AP_SSID, AP_PASSWORD);
 
   // 2. Giai phap 1: Thiet lap IP tinh va ket noi toi iPhone Hotspot
+  WiFi.setAutoReconnect(true);
   WiFi.config(STA_STATIC_IP, STA_GATEWAY, STA_SUBNET, STA_DNS);
   WiFi.begin(STA_SSID, STA_PASSWORD);
 
@@ -484,7 +485,7 @@ void startWiFi() {
       logEvent("[WEB] Test loa: \"Đã hạ kính\"");
     } else if (type == "pinch") {
       speakerPlay(SOUND_ANTI_PINCH);
-      logEvent("[WEB] Test loa: \"Cảnh báo kẹt kính\"");
+      logEvent("[WEB] Test loa: \"Cảnh báo kẹt kính, đã hạ kính\"");
     } else {
       speakerPlay(SOUND_UP_DONE);
       logEvent("[WEB] Test loa: \"Đã nâng kính\"");
@@ -503,9 +504,27 @@ void startWiFi() {
 
 static unsigned long lastWiFiCheckMs = 0;
 static unsigned long lastReconnectAttemptMs = 0;
+static bool pendingPing = false;
+static unsigned long pendingPingAt = 0;
+static bool flaskServerOnline = false;
+static unsigned long lastFlaskPingCheckMs = 0;
 
 void checkWiFiStatus() {
   unsigned long now = millis();
+
+  // Cho 1.5s sau khi Wi-Fi on dinh de bang ARP duoc phan giai truoc khi ping
+  if (pendingPing && now >= pendingPingAt) {
+    pendingPing = false;
+    flaskServerOnline = testVoiceServerPing();
+    lastFlaskPingCheckMs = now;
+  }
+
+  // Dinh ky 10s ping lai neu lan dau chua thay server
+  if (wifiStaConnected && !flaskServerOnline && (now - lastFlaskPingCheckMs >= 10000)) {
+    lastFlaskPingCheckMs = now;
+    flaskServerOnline = testVoiceServerPing();
+  }
+
   if (now - lastWiFiCheckMs < 2000) {
     return;
   }
@@ -516,17 +535,18 @@ void checkWiFiStatus() {
     wifiStaConnected = true;
     logEvent("[WIFI] DA KET NOI IPHONE HOTSPOT!");
     logEvent(String("[WIFI] Web Dashboard tren Laptop: http://") + WiFi.localIP().toString());
-    testVoiceServerPing();
+    pendingPing = true;
+    pendingPingAt = now + 1500;
   } else if (!connected && wifiStaConnected) {
     wifiStaConnected = false;
+    flaskServerOnline = false;
+    pendingPing = false;
     logEvent("[WIFI] Mat ket noi iPhone Hotspot. Vui long kiem tra 4G.");
   }
 
-  // Tu dong thu ket noi lai moi 5 giay neu chua ket noi duoc
-  // (Dac biet giup tu dong bat song ngay khi bat Hotspot iPhone sau)
-  if (!connected && (now - lastReconnectAttemptMs >= 5000)) {
+  // Tu dong thu ket noi lai moi 15 giay neu chua ket noi duoc (tranh ngat ngang tien trinh bat tay 4 buoc cua iPhone)
+  if (!connected && (now - lastReconnectAttemptMs >= 15000)) {
     lastReconnectAttemptMs = now;
-    WiFi.disconnect();
     WiFi.config(STA_STATIC_IP, STA_GATEWAY, STA_SUBNET, STA_DNS);
     WiFi.begin(STA_SSID, STA_PASSWORD);
   }
