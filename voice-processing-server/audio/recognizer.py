@@ -42,13 +42,24 @@ def get_audio_signal_metrics(pcm_bytes: bytes):
 def recognize_speech_from_pcm(pcm_bytes: bytes) -> tuple[str, str]:
     """
     Gui buffer PCM16 sang Google Speech Recognition.
-    Tu dong dem 400ms im lang (zero-padding) o cuoi de Google bat tron ven am duoi
-    ma khong bi loi UnknownValueError do cat dot ngot vien file.
+    - Tu dong can bang am luong (Digital AGC / Gain boost) neu giong noi qua nho.
+    - Tu dong dem 400ms im lang (zero-padding) o cuoi de Google bat tron ven am duoi
+      ma khong bi loi UnknownValueError do cat dot ngot vien file.
     Tra ve tuple: (transcription, error_status)
     """
+    samples = np.frombuffer(pcm_bytes, dtype="<i2").astype(np.float32)
+    peak = float(np.max(np.abs(samples)))
+
+    # Tu dong khuech dai am luong an toan neu giong noi hoi nho (< 12000)
+    if 300 < peak < 12000:
+        gain = min(18000.0 / max(peak, 1.0), 3.5)
+        samples = np.clip(samples * gain, -32768, 32767)
+
+    processed_pcm = samples.astype(np.int16).tobytes()
+
     # Dem 400ms (0.4s) im lang vao duoi am thanh
     trailing_padding = b"\x00" * int(SAMPLE_RATE * 0.4 * SAMPLE_WIDTH)
-    padded_pcm = pcm_bytes + trailing_padding
+    padded_pcm = processed_pcm + trailing_padding
 
     audio_data = sr.AudioData(padded_pcm, SAMPLE_RATE, SAMPLE_WIDTH)
     try:

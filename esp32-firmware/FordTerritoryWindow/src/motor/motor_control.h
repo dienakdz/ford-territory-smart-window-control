@@ -7,6 +7,7 @@
 extern MotorState motorState;
 extern RunMode currentRunMode;
 extern unsigned long motorStartMs;
+extern volatile bool isVoiceDriven; // True neu motor dang chay do lenh giong noi (dung de mo cua so lang nghe ngat)
 
 // Khoi tao cac chan BTS7960 va chan hanh trinh
 void motorInit();

@@ -4,6 +4,7 @@
 MotorState motorState = STOPPED;
 RunMode currentRunMode = MODE_MANUAL;
 unsigned long motorStartMs = 0;
+volatile bool isVoiceDriven = false;
 
 // Tham chieu bo dem phat hien ket ACS712
 extern bool acsHighDetected;
@@ -40,6 +41,7 @@ void motorStop() {
   digitalWrite(LEN_PIN, LOW);
 
   motorState = STOPPED;
+  isVoiceDriven = false; // Dong cua so lang nghe ngat giong noi khi motor dung
 
   // Xoa bo dem phat hien ket
   acsHighDetected = false;
