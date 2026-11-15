@@ -4,6 +4,7 @@
 MotorState motorState = STOPPED;
 RunMode currentRunMode = MODE_MANUAL;
 unsigned long motorStartMs = 0;
+unsigned long motorTimedTargetMs = 0;
 volatile bool isVoiceDriven = false;
 
 // Tham chieu bo dem phat hien ket ACS712
@@ -41,6 +42,7 @@ void motorStop() {
   digitalWrite(LEN_PIN, LOW);
 
   motorState = STOPPED;
+  motorTimedTargetMs = 0;
   isVoiceDriven = false; // Dong cua so lang nghe ngat giong noi khi motor dung
 
   // Xoa bo dem phat hien ket
@@ -108,6 +110,14 @@ bool motorRun(bool up, RunMode requestedMode) {
   return true;
 }
 
+bool motorRunTimed(bool up, unsigned long durationMs) {
+  bool ok = motorRun(up, MODE_TIMED_STEP);
+  if (ok) {
+    motorTimedTargetMs = durationMs;
+  }
+  return ok;
+}
+
 void monitorLimits() {
   if (motorState == STOPPED) {
     return;
@@ -122,7 +132,8 @@ void monitorLimits() {
 
   // Dang nang ma cham hanh trinh tren
   if (motorState == MOVING_UP && topReached()) {
-    logEvent("[LIMIT] HANH TRINH TREN: DUNG MOTOR.");
+    unsigned long elapsed = millis() - motorStartMs;
+    logEvent(String("[LIMIT] CHAM DINH TOP! Thoi gian chay UP: ") + String(elapsed) + " ms (" + String(elapsed / 1000.0, 2) + "s)");
     motorStop();
     currentRunMode = MODE_MANUAL;
     return;
@@ -130,7 +141,8 @@ void monitorLimits() {
 
   // Dang ha ma cham hanh trinh duoi
   if (motorState == MOVING_DOWN && bottomReached()) {
-    logEvent("[LIMIT] HANH TRINH DUOI: DUNG MOTOR.");
+    unsigned long elapsed = millis() - motorStartMs;
+    logEvent(String("[LIMIT] CHAM DAY BOTTOM! Thoi gian chay DOWN: ") + String(elapsed) + " ms (" + String(elapsed / 1000.0, 2) + "s)");
     motorStop();
     currentRunMode = MODE_MANUAL;
     return;
@@ -140,6 +152,16 @@ void monitorLimits() {
 void monitorRunTimeout() {
   if (motorState == STOPPED) {
     return;
+  }
+
+  // Kiem tra hoan tat buoc thoi gian dinh san (1/2, 1/3...)
+  if (currentRunMode == MODE_TIMED_STEP && motorTimedTargetMs > 0) {
+    if (millis() - motorStartMs >= motorTimedTargetMs) {
+      logEvent(String("[TIMED STEP] Hoan tat buoc thoi gian (") + String(motorTimedTargetMs) + "ms). DUNG MOTOR.");
+      motorStop();
+      currentRunMode = MODE_MANUAL;
+      return;
+    }
   }
 
   if (millis() - motorStartMs >= MAX_RUN_MS) {

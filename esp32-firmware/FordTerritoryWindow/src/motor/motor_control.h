@@ -7,6 +7,7 @@
 extern MotorState motorState;
 extern RunMode currentRunMode;
 extern unsigned long motorStartMs;
+extern unsigned long motorTimedTargetMs; // Thoi luong can chay theo buoc (ms)
 extern volatile bool isVoiceDriven; // True neu motor dang chay do lenh giong noi (dung de mo cua so lang nghe ngat)
 
 // Khoi tao cac chan BTS7960 va chan hanh trinh
@@ -17,6 +18,9 @@ void motorStop();
 
 // Chay motor theo chieu nang/ha voi deadtime bao ve va kiem tra cong tac hanh trinh
 bool motorRun(bool up, RunMode requestedMode);
+
+// Chay motor theo buoc thoi gian xac dinh (1/2, 1/3) roi tu dong ngat
+bool motorRunTimed(bool up, unsigned long durationMs);
 
 // Kiem tra trang thai cong tac hanh trinh vi co (NC)
 bool topReached();

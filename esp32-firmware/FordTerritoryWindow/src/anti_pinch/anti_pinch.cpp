@@ -24,8 +24,8 @@ int readAcsVoltageMv() {
 }
 
 void monitorAntiPinch() {
-  // Chi kiem tra khi dang nang tu dong va da co baseline
-  if (motorState != MOVING_UP || currentRunMode != MODE_AUTO || !baselineValid) {
+  // Kiem tra khi dang nang tu dong (AUTO UP hoac TIMED STEP UP) va da co baseline hop le
+  if (motorState != MOVING_UP || (currentRunMode != MODE_AUTO && currentRunMode != MODE_TIMED_STEP) || !baselineValid) {
     acsHighDetected = false;
     acsHighSince = 0;
     return;

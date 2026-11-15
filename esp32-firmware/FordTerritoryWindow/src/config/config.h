@@ -116,3 +116,18 @@ const size_t VOICE_PCM_BYTES = VOICE_SAMPLE_COUNT * sizeof(int16_t);       // 64
 const int VOICE_MIC_GAIN = 2; // He so khuech dai chuan (tranh vo am / clip am khi noi gan)
 const int VOICE_MIN_SPEECH_PEAK = 180; // Nguong VAD khi bam nut thu am (Click-to-talk, do nhay cao)
 // (Da bo co che tu dong thu am ngat khi motor chay)
+
+// --- THOI GIAN HANH TRINH KINH UOC TINH DE CHIA BUOC THOI GIAN (MS) ---
+// Voi MOTOR_SPEED_PWM = 180, kinh di chuyen em ai:
+// Toan hanh trinh UP mat ~5.2 giay, DOWN mat ~4.8 giay
+const unsigned long FULL_TRAVEL_TIME_UP_MS = 5200;
+const unsigned long FULL_TRAVEL_TIME_DOWN_MS = 4800;
+
+// Thoi gian buoc nhay 1/2, 1/3 va 2/3:
+const unsigned long STEP_TIME_UP_HALF_MS = FULL_TRAVEL_TIME_UP_MS / 2;                 // 2600 ms (~2.6s)
+const unsigned long STEP_TIME_UP_THIRD_MS = FULL_TRAVEL_TIME_UP_MS / 3;                // 1733 ms (~1.73s)
+const unsigned long STEP_TIME_UP_TWO_THIRDS_MS = (FULL_TRAVEL_TIME_UP_MS * 2) / 3;    // 3466 ms (~3.47s)
+
+const unsigned long STEP_TIME_DOWN_HALF_MS = FULL_TRAVEL_TIME_DOWN_MS / 2;             // 2400 ms (~2.4s)
+const unsigned long STEP_TIME_DOWN_THIRD_MS = FULL_TRAVEL_TIME_DOWN_MS / 3;           // 1600 ms (~1.6s)
+const unsigned long STEP_TIME_DOWN_TWO_THIRDS_MS = (FULL_TRAVEL_TIME_DOWN_MS * 2) / 3;// 3200 ms (~3.2s)

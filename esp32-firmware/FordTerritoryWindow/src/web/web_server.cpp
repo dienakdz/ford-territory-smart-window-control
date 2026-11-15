@@ -5,6 +5,7 @@
 #include "../anti_pinch/anti_pinch.h"
 #include "../storage/nvs_storage.h"
 #include "../calibration/calibration.h"
+#include "../timing/timing_calibration.h"
 #include "../voice/voice_control.h"
 
 WebServer webServer(80);
@@ -40,9 +41,12 @@ h1{font-size:1.35rem;margin:0 0 4px}
 .col-left{display:flex;flex-direction:column;gap:10px}
 .col-right{display:flex;flex-direction:column;gap:8px}
 .voice-box{padding:12px;background:#13233a;border:1px solid #0284c7;border-radius:10px;display:flex;flex-direction:column;gap:8px}
+.time-box{padding:12px;background:#0d2338;border:1px solid #06b6d4;border-radius:10px;display:flex;flex-direction:column;gap:8px}
 .cal-box{padding:12px;background:#20180a;border:1px solid #f59e0b;border-radius:10px;display:flex;flex-direction:column;gap:8px}
 .btn-voice{background:#0284c7;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-weight:750;font-size:1rem;cursor:pointer;transition:all .15s;text-align:left}
 .btn-voice:hover{background:#0369a1}.btn-voice:disabled{opacity:0.5;cursor:not-allowed}
+.btn-time{background:#0891b2;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:750;font-size:.95rem;cursor:pointer;transition:all .15s;text-align:left}
+.btn-time:hover{background:#0e7490}.btn-time:disabled{opacity:0.5;cursor:not-allowed}
 .btn-cal{background:#d97706;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-weight:750;font-size:1rem;cursor:pointer;transition:all .15s;text-align:left}
 .btn-cal:hover{background:#b45309}.btn-cal:disabled{opacity:0.5;cursor:not-allowed}
 .btn-abort{background:#dc2626;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:750;font-size:.95rem;cursor:pointer;transition:all .15s}
@@ -67,7 +71,7 @@ pre{white-space:pre-wrap;height:calc(100vh - 120px);min-height:500px;max-height:
   <div class="col-left">
     <div class="voice-box">
       <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (2s)</button>
-      <span id="voiceNotice" class="small" style="color:#7dd3fc">Nhấn nút ➔ nói lệnh: nâng kính hoặc hạ kính (chỉ thu âm khi bấm nút).</span>
+      <span id="voiceNotice" class="small" style="color:#7dd3fc">Nhấn nút ➔ nói lệnh: nâng/hạ hết, 1/2, 1/3 hoặc 2/3 kính (chỉ thu âm khi bấm nút).</span>
     </div>
 
     <div class="cal-box">
@@ -78,10 +82,22 @@ pre{white-space:pre-wrap;height:calc(100vh - 120px);min-height:500px;max-height:
       <span id="calNotice" class="small" style="color:#fcd34d">Nhấn nút để vào CAL tự động tính Baseline (không cần giữ AUTO DOWN 2s + AUTO UP 2s).</span>
     </div>
 
+    <div class="time-box">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button id="btnTimeUp" class="btn-time" onclick="triggerTimeUp()">⏱️ ĐO THỜI GIAN NÂNG (UP)</button>
+        <button id="btnTimeDown" class="btn-time" onclick="triggerTimeDown()">⏱️ ĐO THỜI GIAN HẠ (DOWN)</button>
+        <button id="btnAbortTime" class="btn-abort" onclick="abortTimeAction()" style="display:none">❌ HỦY ĐO</button>
+      </div>
+      <span id="timeNotice" class="small" style="color:#67e8f9">Bấm để kính tự chạy từ biên này sang biên kia, tự bấm giờ và lưu NVS Flash.</span>
+    </div>
+
     <div class="grid">
       <div class="card"><div class="label">Mode</div><div class="value" id="mode">—</div></div>
       <div class="card"><div class="label">Giọng nói AI</div><div class="value" id="voice" style="color:#38bdf8">—</div></div>
       <div class="card"><div class="label">Calibration</div><div class="value" id="phase">—</div></div>
+      <div class="card"><div class="label">Đo thời gian</div><div class="value" id="timing_phase" style="color:#22d3ee">IDLE</div></div>
+      <div class="card"><div class="label">Thời gian NÂNG (UP)</div><div class="value" id="time_up" style="color:#4ade80">—</div></div>
+      <div class="card"><div class="label">Thời gian HẠ (DOWN)</div><div class="value" id="time_down" style="color:#4ade80">—</div></div>
       <div class="card"><div class="label">Motor</div><div class="value" id="motor">—</div></div>
       <div class="card"><div class="label">Công tắc</div><div class="value" id="sw">—</div></div>
       <div class="card"><div class="label">Công tắc ADC GPIO1</div><div class="value" id="swmv">—</div></div>
@@ -129,7 +145,7 @@ function scheduleTick(delay){
 async function triggerVoice(){
  const btn=e('btnVoice'),st=e('voiceNotice');
  btn.disabled=true;btn.style.opacity='0.6';
- st.textContent='🎙️ Đang thu âm 2s... Hãy nói: "nâng kính" / "hạ kính"!';
+ st.textContent='🎙️ Đang thu âm 2s... Hãy nói: nâng/hạ hết, 1/2, 1/3 hoặc 2/3 kính!';
  try{
   const r=await fetch('/api/voice/record',{method:'POST'});
   const d=await r.json();
@@ -138,7 +154,7 @@ async function triggerVoice(){
  }catch(err){
   st.textContent='Lỗi kết nối: '+err.message;
  }finally{
-  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';st.textContent='Nhấn nút ➔ nói lệnh: nâng kính hoặc hạ kính (chỉ thu âm khi bấm nút).';}, 2500);
+  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';st.textContent='Nhấn nút ➔ nói lệnh: nâng/hạ hết, 1/2, 1/3 hoặc 2/3 kính (chỉ thu âm khi bấm nút).';}, 2500);
  }
 }
 
@@ -174,6 +190,50 @@ async function abortCalAction(){
  }
 }
 
+async function triggerTimeUp(){
+ const btn=e('btnTimeUp'),st=e('timeNotice');
+ btn.disabled=true;btn.style.opacity='0.6';
+ st.textContent='⏳ Đang gửi yêu cầu đo thời gian NÂNG...';
+ try{
+  const r=await fetch('/api/timing/measure_up',{method:'POST'});
+  const d=await r.json();
+  st.textContent=d.status==='ok'?'✅ '+d.message:'⚠️ '+d.message;
+  scheduleTick(50);
+ }catch(err){
+  st.textContent='Lỗi kết nối: '+err.message;
+ }finally{
+  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';}, 1500);
+ }
+}
+
+async function triggerTimeDown(){
+ const btn=e('btnTimeDown'),st=e('timeNotice');
+ btn.disabled=true;btn.style.opacity='0.6';
+ st.textContent='⏳ Đang gửi yêu cầu đo thời gian HẠ...';
+ try{
+  const r=await fetch('/api/timing/measure_down',{method:'POST'});
+  const d=await r.json();
+  st.textContent=d.status==='ok'?'✅ '+d.message:'⚠️ '+d.message;
+  scheduleTick(50);
+ }catch(err){
+  st.textContent='Lỗi kết nối: '+err.message;
+ }finally{
+  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';}, 1500);
+ }
+}
+
+async function abortTimeAction(){
+ const st=e('timeNotice');
+ try{
+  const r=await fetch('/api/timing/abort',{method:'POST'});
+  const d=await r.json();
+  st.textContent='Đã hủy đo thời gian.';
+  scheduleTick(50);
+ }catch(err){
+  st.textContent='Lỗi kết nối: '+err.message;
+ }
+}
+
 async function tick(){
  if(inFlight)return;
  inFlight=true;
@@ -184,6 +244,9 @@ async function tick(){
   clearTimeout(tid);
   if(!r.ok)throw Error('HTTP '+r.status);const s=await r.json();
   e('mode').textContent=s.mode;e('voice').textContent=s.voice||'CHƯA CÓ';e('phase').textContent=s.phase;e('motor').textContent=s.motor;
+  e('timing_phase').textContent=s.timing_phase||'IDLE';
+  e('time_up').textContent=s.time_up?s.time_up+' ms':'CHƯA LƯU';
+  e('time_down').textContent=s.time_down?s.time_down+' ms':'CHƯA LƯU';
   e('sw').textContent=s.switch;e('swmv').textContent=s.switch_mv+' mV';e('acsmv').textContent=s.acs_mv+' mV';
   e('base').textContent=s.saved_valid?s.baseline_mv+' mV':'CHƯA CÓ';
   e('thresh').textContent=s.saved_valid?s.threshold_mv+' mV (thử nghiệm)':'CHƯA CÓ';
@@ -192,9 +255,20 @@ async function tick(){
   e('wifi_sta').textContent=s.wifi_sta;
   e('conn').textContent='ESP32 IP: '+s.ip+' | Live';
 
-  // Adaptive polling: Khi kinh chay hoac dang CAL thi 250ms, khi nghi thi 1000ms (1s)
-  const isBusy = s.cal_mode || (s.motor && s.motor !== 'STOPPED');
+  // Adaptive polling: Khi kinh chay, dang CAL hoac dang do thoi gian thi 250ms, khi nghi thi 1000ms
+  const isBusy = s.cal_mode || s.timing_active || (s.motor && s.motor !== 'STOPPED');
   nextDelay = isBusy ? 250 : 1000;
+
+  if(s.timing_active){
+    e('btnTimeUp').disabled=true;e('btnTimeUp').style.opacity='0.6';
+    e('btnTimeDown').disabled=true;e('btnTimeDown').style.opacity='0.6';
+    e('btnAbortTime').style.display='inline-block';
+    e('timeNotice').innerHTML='⏳ <b>' + s.timing_phase + '...</b> Vui lòng quan sát kính di chuyển.';
+  }else{
+    e('btnTimeUp').disabled=false;e('btnTimeUp').style.opacity='1';
+    e('btnTimeDown').disabled=false;e('btnTimeDown').style.opacity='1';
+    e('btnAbortTime').style.display='none';
+  }
 
   if(s.cal_mode){
     calActivePrev=true;
@@ -248,6 +322,11 @@ void sendStatus() {
   s += "\"margin_mv\":" + String(ANTI_PINCH_MARGIN_MV) + ",";
   s += "\"threshold_mv\":" + String(baselineValid ? savedCal.baselineMv + ANTI_PINCH_MARGIN_MV : 0) + ",";
   s += "\"saved_valid\":" + String(baselineValid ? "true" : "false") + ",";
+  s += "\"time_up\":" + String(travelTimeUpMs) + ",";
+  s += "\"time_down\":" + String(travelTimeDownMs) + ",";
+  s += "\"time_valid\":" + String(travelTimeValid ? "true" : "false") + ",";
+  s += "\"timing_phase\":\"" + escapeJson(String(measurePhaseName())) + "\",";
+  s += "\"timing_active\":" + String(currentMeasurePhase != MEASURE_IDLE ? "true" : "false") + ",";
   s += "\"samples\":" + String(calSampleCount) + ",";
   s += "\"result\":\"" + escapeJson(lastCalResult) + "\",";
   s += "\"top\":" + String(topReached() ? "true" : "false") + ",";
@@ -344,6 +423,38 @@ void startWiFi() {
     }
     abortCal("Huy CAL tu Web Dashboard");
     String json = "{\"status\":\"ok\",\"message\":\"Da huy CAL, quay ve NORMAL.\"}";
+    webServer.sendHeader("Cache-Control", "no-store");
+    webServer.send(200, "application/json; charset=utf-8", json);
+  });
+
+  // Endpoints do thoi gian hanh trinh va luu NVS Flash
+  webServer.on("/api/timing/measure_up", HTTP_POST, []() {
+    if (startMeasureUp()) {
+      String json = "{\"status\":\"ok\",\"message\":\"Da bat dau do UP! Kinh dang tu chuan bi va bam gio...\"}";
+      webServer.sendHeader("Cache-Control", "no-store");
+      webServer.send(200, "application/json; charset=utf-8", json);
+    } else {
+      String json = "{\"status\":\"error\",\"message\":\"Khong the bat dau do UP luc nay.\"}";
+      webServer.sendHeader("Cache-Control", "no-store");
+      webServer.send(200, "application/json; charset=utf-8", json);
+    }
+  });
+
+  webServer.on("/api/timing/measure_down", HTTP_POST, []() {
+    if (startMeasureDown()) {
+      String json = "{\"status\":\"ok\",\"message\":\"Da bat dau do DOWN! Kinh dang tu chuan bi va bam gio...\"}";
+      webServer.sendHeader("Cache-Control", "no-store");
+      webServer.send(200, "application/json; charset=utf-8", json);
+    } else {
+      String json = "{\"status\":\"error\",\"message\":\"Khong the bat dau do DOWN luc nay.\"}";
+      webServer.sendHeader("Cache-Control", "no-store");
+      webServer.send(200, "application/json; charset=utf-8", json);
+    }
+  });
+
+  webServer.on("/api/timing/abort", HTTP_POST, []() {
+    abortMeasure("Nguoi dung huy tu Web Dashboard");
+    String json = "{\"status\":\"ok\",\"message\":\"Da huy do thoi gian.\"}";
     webServer.sendHeader("Cache-Control", "no-store");
     webServer.send(200, "application/json; charset=utf-8", json);
   });

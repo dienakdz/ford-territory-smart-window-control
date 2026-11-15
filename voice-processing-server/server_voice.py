@@ -76,7 +76,7 @@ if __name__ == "__main__":
     laptop_ip = get_laptop_ip()
     print("=" * 60)
     print(" FORD TERRITORY VOICE CONTROL SERVER (FLASK)")
-    print(" 2 CHE DO: NANG KINH (AUTO UP) | HA KINH (AUTO DOWN)")
+    print(" NANG/HA HET | NANG/HA 1/2 | NANG/HA 1/3 | NANG/HA 2/3")
     print(" GHI AM CHI KHI CLICK NGUOI DUNG (CLICK-TO-TALK)")
     print("=" * 60)
     print(f"Server dang lang nghe tai: http://{config.HOST}:{config.PORT}")

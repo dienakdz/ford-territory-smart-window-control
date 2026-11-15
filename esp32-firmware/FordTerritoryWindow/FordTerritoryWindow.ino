@@ -44,6 +44,7 @@
 #include "src/switch/switch_control.h"
 #include "src/anti_pinch/anti_pinch.h"
 #include "src/calibration/calibration.h"
+#include "src/timing/timing_calibration.h"
 #include "src/web/web_server.h"
 #include "src/voice/voice_control.h"
 
@@ -66,8 +67,10 @@ void setup() {
 
   logEvent("[BOOT] Ford Territory Window Control Starting...");
 
-  // [4] Đọc cấu hình Baseline từ bộ nhớ NVS Flash (nếu đã từng hiệu chuẩn thành công)
+  // [4] Đọc cấu hình Baseline và thời gian hành trình từ bộ nhớ NVS Flash
   loadCalibration();
+  loadTravelTimes();
+  timingInit();
 
   // [5] Khởi động Wi-Fi chế độ kép (WIFI_AP_STA):
   //     - Kết nối iPhone Hotspot với Static IP 172.20.10.50
@@ -129,9 +132,12 @@ void loop() {
   }
 
   // ---------------------------------------------------------------------------
-  // [BƯỚC 2]: XỬ LÝ THEO CHẾ ĐỘ HIỆN TẠI (CALIBRATION HOẶC NORMAL)
+  // [BƯỚC 2]: XỬ LÝ THEO CHẾ ĐỘ HIỆN TẠI (TIMING CAL, BASELINE CAL HOẶC NORMAL)
   // ---------------------------------------------------------------------------
-  if (calMode) {
+  if (currentMeasurePhase != MEASURE_IDLE) {
+    // Đang trong tiến trình tự động đo thời gian hành trình (UP hoặc DOWN)
+    handleTimingMeasure(now);
+  } else if (calMode) {
     // Nếu đang ở chế độ hiệu chuẩn: chạy máy trạng thái Calibration
     // (Tự hạ đáy -> Chờ người dùng nhấn UP -> Nâng lên TOP học baseline -> Tự lưu NVS)
     handleCal(now);

@@ -32,7 +32,8 @@ enum RunMode {
   MODE_AUTO,                // Chay tu dong (nha nut van tiep tuc chay toi khi cham hanh trinh)
   MODE_ANTI_PINCH_REVERSE,  // Che do dac biet: dao chieu ha kinh 1s sau khi phat hien ket
   MODE_CAL_DOWN,            // Che do CAL: tu dong ha kinh ve BOTTOM
-  MODE_CAL_UP               // Che do CAL: nang kinh len TOP de do dong baseline
+  MODE_CAL_UP,              // Che do CAL: nang kinh len TOP de do dong baseline
+  MODE_TIMED_STEP           // Chay theo buoc thoi gian dinh san (1/2, 1/3...)
 };
 
 /**
@@ -44,6 +45,19 @@ enum CalPhase {
   CAL_WAIT_UP,      // Giai doan 2: Da o day, cho nguoi dung nhan va giu UP
   CAL_COLLECT_UP,   // Giai doan 3: Dang nang kinh len TOP de ghi nhan cac mau dong ACS712
   CAL_FAILED        // Giai doan loi: Huy CAL va giu nguyen baseline cu
+};
+
+/**
+ * @brief May trang thai do va hieu chuan thoi gian hanh trinh (Timing Calibration)
+ */
+enum MeasurePhase {
+  MEASURE_IDLE = 0,
+  MEASURE_UP_PREP_DOWN,      // Dang tu ha xuong BOTTOM de chuan bi do UP
+  MEASURE_UP_WAIT_REVERSE,    // Cho 500ms o BOTTOM de on dinh chieu quay
+  MEASURE_UP_RUNNING,        // Dang chay UP tu BOTTOM len TOP de bam gio
+  MEASURE_DOWN_PREP_UP,      // Dang tu nang len TOP de chuan bi do DOWN
+  MEASURE_DOWN_WAIT_REVERSE,  // Cho 500ms o TOP de on dinh chieu quay
+  MEASURE_DOWN_RUNNING       // Dang chay DOWN tu TOP xuong BOTTOM de bam gio
 };
 
 /**
@@ -64,6 +78,12 @@ enum VoiceCommandReq {
   VOICE_REQ_NONE = 0,
   VOICE_REQ_AUTO_UP,
   VOICE_REQ_AUTO_DOWN,
+  VOICE_REQ_UP_HALF,
+  VOICE_REQ_UP_THIRD,
+  VOICE_REQ_UP_TWO_THIRDS,
+  VOICE_REQ_DOWN_HALF,
+  VOICE_REQ_DOWN_THIRD,
+  VOICE_REQ_DOWN_TWO_THIRDS,
   VOICE_REQ_STOP
 };
 

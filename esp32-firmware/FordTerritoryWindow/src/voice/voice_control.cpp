@@ -59,7 +59,7 @@ void voiceInit() {
 
 void triggerVoiceListen() {
   voiceTriggerRequested = true;
-  logEvent("[VOICE] Bat dau thu am 2 giay... Hay noi: \"nang kinh\" / \"ha kinh\"...");
+  logEvent("[VOICE] Bat dau thu am 2 giay... Hay noi: het, 1/2, 1/3 hoac 2/3 kinh...");
 }
 
 bool recordAndRecognize() {
@@ -230,13 +230,30 @@ static void voiceTaskLoop(void *pvParameters) {
       http.end();
 
       // --- PHÂN LOẠI VÀ THỰC THI LỆNH GIỌNG NÓI ---
-      // Chỉ còn nâng kính (AUTO_UP) và hạ kính (AUTO_DOWN), không còn nhận lệnh STOP
       if (command == "AUTO_DOWN" || command == "DOWN") {
-        lastVoiceResult = "AUTO DOWN";
+        lastVoiceResult = "HẠ HẾT";
         voicePendingReq = VOICE_REQ_AUTO_DOWN;
       } else if (command == "AUTO_UP" || command == "UP") {
-        lastVoiceResult = "AUTO UP";
+        lastVoiceResult = "NÂNG HẾT";
         voicePendingReq = VOICE_REQ_AUTO_UP;
+      } else if (command == "UP_HALF") {
+        lastVoiceResult = "NÂNG 1/2";
+        voicePendingReq = VOICE_REQ_UP_HALF;
+      } else if (command == "UP_THIRD") {
+        lastVoiceResult = "NÂNG 1/3";
+        voicePendingReq = VOICE_REQ_UP_THIRD;
+      } else if (command == "UP_TWO_THIRDS") {
+        lastVoiceResult = "NÂNG 2/3";
+        voicePendingReq = VOICE_REQ_UP_TWO_THIRDS;
+      } else if (command == "DOWN_HALF") {
+        lastVoiceResult = "HẠ 1/2";
+        voicePendingReq = VOICE_REQ_DOWN_HALF;
+      } else if (command == "DOWN_THIRD") {
+        lastVoiceResult = "HẠ 1/3";
+        voicePendingReq = VOICE_REQ_DOWN_THIRD;
+      } else if (command == "DOWN_TWO_THIRDS") {
+        lastVoiceResult = "HẠ 2/3";
+        voicePendingReq = VOICE_REQ_DOWN_TWO_THIRDS;
       } else {
         lastVoiceResult = command;
       }
@@ -297,6 +314,18 @@ void checkVoicePendingReq() {
   VoiceCommandReq req = voicePendingReq;
   voicePendingReq = VOICE_REQ_NONE;
 
+  // Tinh toan thoi gian buoc nhay thuc te tu NVS Flash
+  unsigned long timeUp = (travelTimeUpMs >= 1500 && travelTimeUpMs <= 12000) ? travelTimeUpMs : FULL_TRAVEL_TIME_UP_MS;
+  unsigned long timeDown = (travelTimeDownMs >= 1500 && travelTimeDownMs <= 12000) ? travelTimeDownMs : FULL_TRAVEL_TIME_DOWN_MS;
+
+  unsigned long stepUpHalf = timeUp / 2;
+  unsigned long stepUpThird = timeUp / 3;
+  unsigned long stepUpTwoThirds = (timeUp * 2) / 3;
+
+  unsigned long stepDownHalf = timeDown / 2;
+  unsigned long stepDownThird = timeDown / 3;
+  unsigned long stepDownTwoThirds = (timeDown * 2) / 3;
+
   if (req == VOICE_REQ_AUTO_UP) {
     if (!baselineValid) {
       logEvent("[SAFE] AUTO UP bi khoa: Chua co baseline hop le. Hay CAL truoc.");
@@ -304,10 +333,46 @@ void checkVoicePendingReq() {
       currentRunMode = MODE_MANUAL;
     } else {
       motorRun(true, MODE_AUTO);
-      logEvent("[VOICE -> MOTOR] AUTO UP (Nang het kinh) kich hoat thanh cong!");
+      logEvent("[VOICE -> MOTOR] AUTO UP (Nang het kinh) kich hoat!");
     }
   } else if (req == VOICE_REQ_AUTO_DOWN) {
     motorRun(false, MODE_AUTO);
-    logEvent("[VOICE -> MOTOR] AUTO DOWN (Ha het kinh) kich hoat thanh cong!");
+    logEvent("[VOICE -> MOTOR] AUTO DOWN (Ha het kinh) kich hoat!");
+  } else if (req == VOICE_REQ_UP_HALF) {
+    if (!baselineValid) {
+      logEvent("[SAFE] NANG 1/2 bi khoa: Chua co baseline hop le. Hay CAL truoc.");
+      motorStop();
+      currentRunMode = MODE_MANUAL;
+    } else {
+      motorRunTimed(true, stepUpHalf);
+      logEvent(String("[VOICE -> MOTOR] NANG 1/2 KINH (") + String(stepUpHalf) + "ms) kich hoat!");
+    }
+  } else if (req == VOICE_REQ_UP_THIRD) {
+    if (!baselineValid) {
+      logEvent("[SAFE] NANG 1/3 bi khoa: Chua co baseline hop le. Hay CAL truoc.");
+      motorStop();
+      currentRunMode = MODE_MANUAL;
+    } else {
+      motorRunTimed(true, stepUpThird);
+      logEvent(String("[VOICE -> MOTOR] NANG 1/3 KINH (") + String(stepUpThird) + "ms) kich hoat!");
+    }
+  } else if (req == VOICE_REQ_UP_TWO_THIRDS) {
+    if (!baselineValid) {
+      logEvent("[SAFE] NANG 2/3 bi khoa: Chua co baseline hop le. Hay CAL truoc.");
+      motorStop();
+      currentRunMode = MODE_MANUAL;
+    } else {
+      motorRunTimed(true, stepUpTwoThirds);
+      logEvent(String("[VOICE -> MOTOR] NANG 2/3 KINH (") + String(stepUpTwoThirds) + "ms) kich hoat!");
+    }
+  } else if (req == VOICE_REQ_DOWN_HALF) {
+    motorRunTimed(false, stepDownHalf);
+    logEvent(String("[VOICE -> MOTOR] HA 1/2 KINH (") + String(stepDownHalf) + "ms) kich hoat!");
+  } else if (req == VOICE_REQ_DOWN_THIRD) {
+    motorRunTimed(false, stepDownThird);
+    logEvent(String("[VOICE -> MOTOR] HA 1/3 KINH (") + String(stepDownThird) + "ms) kich hoat!");
+  } else if (req == VOICE_REQ_DOWN_TWO_THIRDS) {
+    motorRunTimed(false, stepDownTwoThirds);
+    logEvent(String("[VOICE -> MOTOR] HA 2/3 KINH (") + String(stepDownTwoThirds) + "ms) kich hoat!");
   }
 }

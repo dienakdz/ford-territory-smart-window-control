@@ -4,6 +4,10 @@
 CalibrationRecord savedCal = {};
 bool baselineValid = false;
 
+unsigned long travelTimeUpMs = FULL_TRAVEL_TIME_UP_MS;
+unsigned long travelTimeDownMs = FULL_TRAVEL_TIME_DOWN_MS;
+bool travelTimeValid = false;
+
 uint32_t checksumCal(const CalibrationRecord &r) {
   const uint8_t *bytes = (const uint8_t*)&r;
   uint32_t h = 2166136261u;
@@ -61,5 +65,50 @@ bool saveCalibration(int baseline, int idle, int p10, int p90, int count) {
   if (n != sizeof(r)) return false;
   savedCal = r;
   baselineValid = true;
+  return true;
+}
+
+void loadTravelTimes() {
+  Preferences prefs;
+  if (!prefs.begin("fordwin", false)) {
+    return;
+  }
+
+  unsigned long up = prefs.getULong("time_up", 0);
+  unsigned long down = prefs.getULong("time_down", 0);
+  prefs.end();
+
+  if (up >= 1500 && up <= 12000 && down >= 1500 && down <= 12000) {
+    travelTimeUpMs = up;
+    travelTimeDownMs = down;
+    travelTimeValid = true;
+    logEvent(String("[NVS] Da doc thoi gian hanh trinh: UP=") + String(travelTimeUpMs) + "ms | DOWN=" + String(travelTimeDownMs) + "ms");
+  } else {
+    travelTimeUpMs = FULL_TRAVEL_TIME_UP_MS;
+    travelTimeDownMs = FULL_TRAVEL_TIME_DOWN_MS;
+    travelTimeValid = false;
+    logEvent(String("[NVS] Dung thoi gian mac dinh: UP=") + String(travelTimeUpMs) + "ms | DOWN=" + String(travelTimeDownMs) + "ms");
+  }
+}
+
+bool saveTravelTimeUp(unsigned long ms) {
+  if (ms < 1000 || ms > 15000) return false;
+  Preferences prefs;
+  if (!prefs.begin("fordwin", false)) return false;
+  prefs.putULong("time_up", ms);
+  prefs.end();
+  travelTimeUpMs = ms;
+  travelTimeValid = true;
+  return true;
+}
+
+bool saveTravelTimeDown(unsigned long ms) {
+  if (ms < 1000 || ms > 15000) return false;
+  Preferences prefs;
+  if (!prefs.begin("fordwin", false)) return false;
+  prefs.putULong("time_down", ms);
+  prefs.end();
+  travelTimeDownMs = ms;
+  travelTimeValid = true;
   return true;
 }
