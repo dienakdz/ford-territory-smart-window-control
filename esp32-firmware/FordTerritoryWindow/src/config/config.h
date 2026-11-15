@@ -110,9 +110,9 @@ const uint8_t MOTOR_SPEED_PWM = 180;
 
 // --- THAM SO THU AM GIONG NOI INMP441 ---
 const uint32_t VOICE_SAMPLE_RATE = 16000;
-const size_t VOICE_RECORD_SECONDS = 2; // Dong bo 2 giay toan he thong
-const size_t VOICE_SAMPLE_COUNT = VOICE_SAMPLE_RATE * VOICE_RECORD_SECONDS; // 32,000 samples (2 giay)
-const size_t VOICE_PCM_BYTES = VOICE_SAMPLE_COUNT * sizeof(int16_t);       // 64,000 bytes
+const size_t VOICE_RECORD_SECONDS = 3; // Dong bo 3 giay toan he thong (Click-to-talk)
+const size_t VOICE_SAMPLE_COUNT = VOICE_SAMPLE_RATE * VOICE_RECORD_SECONDS; // 48,000 samples (3 giay)
+const size_t VOICE_PCM_BYTES = VOICE_SAMPLE_COUNT * sizeof(int16_t);       // 96,000 bytes
 const int VOICE_MIC_GAIN = 2; // He so khuech dai chuan (tranh vo am / clip am khi noi gan)
 const int VOICE_MIN_SPEECH_PEAK = 180; // Nguong VAD khi bam nut thu am (Click-to-talk, do nhay cao)
 // (Da bo co che tu dong thu am ngat khi motor chay)

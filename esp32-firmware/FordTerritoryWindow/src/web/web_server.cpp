@@ -70,7 +70,7 @@ pre{white-space:pre-wrap;height:calc(100vh - 120px);min-height:500px;max-height:
   <!-- CỘT TRÁI: ĐIỀU KHIỂN & THÔNG SỐ (col-6) -->
   <div class="col-left">
     <div class="voice-box">
-      <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (2s)</button>
+      <button id="btnVoice" class="btn-voice" onclick="triggerVoice()">🎤 BẤM ĐỂ RA LỆNH GIỌNG NÓI (3s)</button>
       <span id="voiceNotice" class="small" style="color:#7dd3fc">Nhấn nút ➔ nói lệnh: nâng/hạ hết, 1/2, 1/3 hoặc 2/3 kính (chỉ thu âm khi bấm nút).</span>
     </div>
 
@@ -145,7 +145,7 @@ function scheduleTick(delay){
 async function triggerVoice(){
  const btn=e('btnVoice'),st=e('voiceNotice');
  btn.disabled=true;btn.style.opacity='0.6';
- st.textContent='🎙️ Đang thu âm 2s... Hãy nói: nâng/hạ hết, 1/2, 1/3 hoặc 2/3 kính!';
+ st.textContent='🎙️ Đang thu âm 3s... Hãy nói: nâng/hạ hết, 1/2, 1/3 hoặc 2/3 kính!';
  try{
   const r=await fetch('/api/voice/record',{method:'POST'});
   const d=await r.json();
@@ -154,7 +154,7 @@ async function triggerVoice(){
  }catch(err){
   st.textContent='Lỗi kết nối: '+err.message;
  }finally{
-  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';st.textContent='Nhấn nút ➔ nói lệnh: nâng/hạ hết, 1/2, 1/3 hoặc 2/3 kính (chỉ thu âm khi bấm nút).';}, 2500);
+  setTimeout(()=>{btn.disabled=false;btn.style.opacity='1';st.textContent='Nhấn nút ➔ nói lệnh: nâng/hạ hết, 1/2, 1/3 hoặc 2/3 kính (chỉ thu âm khi bấm nút).';}, 3500);
  }
 }
 
@@ -309,7 +309,7 @@ async function tick(){
 
 void sendStatus() {
   String s;
-  s.reserve(2500);
+  s.reserve(3500);
   s += "{\"mode\":\"" + String(modeName()) + "\",";
   s += "\"cal_mode\":" + String(calMode ? "true" : "false") + ",";
   s += "\"voice\":\"" + escapeJson(lastVoiceResult) + "\",";

@@ -18,7 +18,6 @@ static TaskHandle_t voiceTaskHandle = NULL;
 static I2SClass mic;
 static const size_t BLOCK_SAMPLES = 256;
 static int32_t rawSamples[BLOCK_SAMPLES];
-static int16_t *voicePcmBuffer = nullptr;
 
 // Prototype ham loop tren Core 0
 static void voiceTaskLoop(void *pvParameters);
@@ -31,19 +30,10 @@ void voiceInit() {
     logEvent("[VOICE] LOI: Khoi tao I2S micro INMP441 that bai!");
     return;
   }
-  logEvent("[VOICE] Micro INMP441 san sang (GPIO14/15/16 | 16kHz | 2s | DC-Blocker).");
 
-  // Cap phat bo dem co dinh 64KB (2 giay)
-  if (psramFound()) {
-    voicePcmBuffer = static_cast<int16_t *>(ps_malloc(VOICE_PCM_BYTES));
-  }
-  if (voicePcmBuffer == nullptr) {
-    voicePcmBuffer = static_cast<int16_t *>(malloc(VOICE_PCM_BYTES));
-  }
-  if (voicePcmBuffer == nullptr) {
-    logEvent("[VOICE] LOI: Khong the cap phat bo dem 64KB cho am thanh!");
-    return;
-  }
+  String psramStatus = psramFound() ? "BAT (8MB PSRAM OPI)" : "TAT (Dung On-Demand SRAM)";
+  logEvent(String("[VOICE] Micro INMP441 san sang (16kHz | 3s | PSRAM: ") + psramStatus + ").");
+  logEvent(String("[SYSTEM] Free Heap khoi dong: ") + String(ESP.getFreeHeap()) + " bytes");
 
   // Khoi tao Task chay doc lap tren Core 0 (Bộ não thứ 2)
   xTaskCreatePinnedToCore(
@@ -59,7 +49,7 @@ void voiceInit() {
 
 void triggerVoiceListen() {
   voiceTriggerRequested = true;
-  logEvent("[VOICE] Bat dau thu am 2 giay... Hay noi: het, 1/2, 1/3 hoac 2/3 kinh...");
+  logEvent("[VOICE] Bat dau thu am 3 giay... Hay noi: het, 1/2, 1/3 hoac 2/3 kinh...");
 }
 
 bool recordAndRecognize() {
@@ -79,8 +69,8 @@ bool testVoiceServerPing() {
     return false;
   }
 
-  http.setConnectTimeout(2500);
-  http.setTimeout(3000);
+  http.setConnectTimeout(800);
+  http.setTimeout(1200);
   int code = http.GET();
   bool success = false;
 
@@ -96,6 +86,7 @@ bool testVoiceServerPing() {
   }
 
   http.end();
+  client.stop();
   return success;
 }
 
@@ -114,7 +105,6 @@ static void voiceTaskLoop(void *pvParameters) {
     // -------------------------------------------------------------------------
     // KIỂM TRA ĐIỀU KIỆN THU ÂM (CHỈ THU ÂM KHI CLICK BẤM NÚT):
     // Chỉ kích hoạt khi người dùng nhấn nút vật lý PTT (GPIO2) hoặc click trên Web Dashboard.
-    // KHÔNG tự động ghi âm khi kính đang chạy nữa.
     // -------------------------------------------------------------------------
     bool isUserTriggered = false;
     if (voiceTriggerRequested) {
@@ -129,14 +119,33 @@ static void voiceTaskLoop(void *pvParameters) {
       continue;
     }
 
-    // Neu chua ket noi Wi-Fi hoac khong co bo dem RAM
-    if (WiFi.status() != WL_CONNECTED || voicePcmBuffer == nullptr) {
+    // Nếu chưa kết nối Wi-Fi: Báo nhắc người dùng
+    if (WiFi.status() != WL_CONNECTED) {
+      logEvent("[VOICE] Chua the thu am: Wi-Fi chua ket noi voi iPhone Hotspot!");
       isVoiceRecording = false;
       vTaskDelay(pdMS_TO_TICKS(50));
       continue;
     }
 
-    // --- TIẾN HÀNH THU ÂM 2 GIÂY ---
+    // --- CẤP PHÁT BỘ ĐỆM ĐỘNG THEO YÊU CẦU (ON-DEMAND BUFFER 96KB) ---
+    // Chỉ cấp phát RAM khi bấm nút nói. Thu âm & gửi xong sẽ giải phóng ngay!
+    // Giúp hệ thống luôn dư dả 150KB - 200KB SRAM nội bộ, Wi-Fi và Web Server không bao giờ đơ/crash.
+    int16_t *pcmBuffer = nullptr;
+    if (psramFound()) {
+      pcmBuffer = static_cast<int16_t *>(ps_malloc(VOICE_PCM_BYTES));
+    }
+    if (pcmBuffer == nullptr) {
+      pcmBuffer = static_cast<int16_t *>(malloc(VOICE_PCM_BYTES));
+    }
+
+    if (pcmBuffer == nullptr) {
+      logEvent(String("[VOICE] LOI: Khong du RAM thu am! Free Heap hien tai: ") + String(ESP.getFreeHeap()) + " bytes");
+      isVoiceRecording = false;
+      vTaskDelay(pdMS_TO_TICKS(50));
+      continue;
+    }
+
+    // --- TIẾN HÀNH THU ÂM 3 GIÂY ---
     isVoiceRecording = true;
 
     // Xoa sach du lieu cu trong bo dem I2S
@@ -177,7 +186,7 @@ static void voiceTaskLoop(void *pvParameters) {
         if (val > 32767) val = 32767;
         if (val < -32768) val = -32768;
 
-        voicePcmBuffer[recorded++] = static_cast<int16_t>(val);
+        pcmBuffer[recorded++] = static_cast<int16_t>(val);
 
         int mag = val >= 0 ? val : -val;
         if (mag > peak) peak = mag;
@@ -188,6 +197,10 @@ static void voiceTaskLoop(void *pvParameters) {
     // Kiểm tra ngưỡng biên độ giọng nói (VAD) khi bấm nút
     if (peak < VOICE_MIN_SPEECH_PEAK) {
       logEvent("[VOICE] Am thanh qua nho hoac khong co tieng noi.");
+      if (pcmBuffer != nullptr) {
+        free(pcmBuffer);
+        pcmBuffer = nullptr;
+      }
       isVoiceRecording = false;
       vTaskDelay(pdMS_TO_TICKS(20));
       continue;
@@ -197,14 +210,14 @@ static void voiceTaskLoop(void *pvParameters) {
     WiFiClient client;
     HTTPClient http;
     String url = String(FLASK_SERVER_BASE) + "/recognize";
+    String command = "UNKNOWN";
 
     if (http.begin(client, url)) {
       http.setConnectTimeout(2500);
       http.setTimeout(8000);
       http.addHeader("Content-Type", "application/octet-stream");
 
-      int code = http.POST(reinterpret_cast<uint8_t *>(voicePcmBuffer), recorded * sizeof(int16_t));
-      String command = "UNKNOWN";
+      int code = http.POST(reinterpret_cast<uint8_t *>(pcmBuffer), recorded * sizeof(int16_t));
 
       if (code == 200) {
         String resp = http.getString();
@@ -228,40 +241,47 @@ static void voiceTaskLoop(void *pvParameters) {
       }
 
       http.end();
-
-      // --- PHÂN LOẠI VÀ THỰC THI LỆNH GIỌNG NÓI ---
-      if (command == "AUTO_DOWN" || command == "DOWN") {
-        lastVoiceResult = "HẠ HẾT";
-        voicePendingReq = VOICE_REQ_AUTO_DOWN;
-      } else if (command == "AUTO_UP" || command == "UP") {
-        lastVoiceResult = "NÂNG HẾT";
-        voicePendingReq = VOICE_REQ_AUTO_UP;
-      } else if (command == "UP_HALF") {
-        lastVoiceResult = "NÂNG 1/2";
-        voicePendingReq = VOICE_REQ_UP_HALF;
-      } else if (command == "UP_THIRD") {
-        lastVoiceResult = "NÂNG 1/3";
-        voicePendingReq = VOICE_REQ_UP_THIRD;
-      } else if (command == "UP_TWO_THIRDS") {
-        lastVoiceResult = "NÂNG 2/3";
-        voicePendingReq = VOICE_REQ_UP_TWO_THIRDS;
-      } else if (command == "DOWN_HALF") {
-        lastVoiceResult = "HẠ 1/2";
-        voicePendingReq = VOICE_REQ_DOWN_HALF;
-      } else if (command == "DOWN_THIRD") {
-        lastVoiceResult = "HẠ 1/3";
-        voicePendingReq = VOICE_REQ_DOWN_THIRD;
-      } else if (command == "DOWN_TWO_THIRDS") {
-        lastVoiceResult = "HẠ 2/3";
-        voicePendingReq = VOICE_REQ_DOWN_TWO_THIRDS;
-      } else {
-        lastVoiceResult = command;
-      }
+      client.stop();
     } else {
       voiceActiveUntilMs = 0;
       voiceTriggerRequested = false;
       isVoiceDriven = false;
-      logEvent("[VOICE] Khong the ket noi Flask Server.");
+      logEvent("[VOICE] Khong the khoi tao HTTP POST sang Flask Server.");
+    }
+
+    // --- GIẢI PHÓNG BỘ ĐỆM 96KB NGAY LẬP TỨC ĐỂ TRẢ RAM CHO HỆ THỐNG ---
+    if (pcmBuffer != nullptr) {
+      free(pcmBuffer);
+      pcmBuffer = nullptr;
+    }
+
+    // --- PHÂN LOẠI VÀ THỰC THI LỆNH GIỌNG NÓI ---
+    if (command == "AUTO_DOWN" || command == "DOWN") {
+      lastVoiceResult = "HẠ HẾT";
+      voicePendingReq = VOICE_REQ_AUTO_DOWN;
+    } else if (command == "AUTO_UP" || command == "UP") {
+      lastVoiceResult = "NÂNG HẾT";
+      voicePendingReq = VOICE_REQ_AUTO_UP;
+    } else if (command == "UP_HALF") {
+      lastVoiceResult = "NÂNG 1/2";
+      voicePendingReq = VOICE_REQ_UP_HALF;
+    } else if (command == "UP_THIRD") {
+      lastVoiceResult = "NÂNG 1/3";
+      voicePendingReq = VOICE_REQ_UP_THIRD;
+    } else if (command == "UP_TWO_THIRDS") {
+      lastVoiceResult = "NÂNG 2/3";
+      voicePendingReq = VOICE_REQ_UP_TWO_THIRDS;
+    } else if (command == "DOWN_HALF") {
+      lastVoiceResult = "HẠ 1/2";
+      voicePendingReq = VOICE_REQ_DOWN_HALF;
+    } else if (command == "DOWN_THIRD") {
+      lastVoiceResult = "HẠ 1/3";
+      voicePendingReq = VOICE_REQ_DOWN_THIRD;
+    } else if (command == "DOWN_TWO_THIRDS") {
+      lastVoiceResult = "HẠ 2/3";
+      voicePendingReq = VOICE_REQ_DOWN_TWO_THIRDS;
+    } else if (command != "UNKNOWN") {
+      lastVoiceResult = command;
     }
 
     isVoiceRecording = false;
